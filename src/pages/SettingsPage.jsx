@@ -14,7 +14,7 @@ export default function SettingsPage() {
     <PageLayout>
       <PageHeader title="Settings" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <SettingsCard title="Pomodoro Settings" sectionLabel="TIMER">
           <SettingRow label="Auto Start Breaks" desc="Automatically start breaks after focus session">
             <Toggle on={settings.autoBreaks} onChange={() => toggle("autoBreaks")} />
@@ -44,7 +44,7 @@ export default function SettingsPage() {
           </SettingRow>
         </SettingsCard>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <SettingsCard title="Focus & Alerts" sectionLabel="NOTIFICATIONS">
             <SettingRow label="Do Not Disturb Mode" desc="Block distractions during focus sessions">
               <Toggle on={settings.dnd} onChange={() => toggle("dnd")} />
@@ -70,15 +70,15 @@ export default function SettingsPage() {
           </SettingsCard>
 
           <SettingsCard title="Profile" sectionLabel="ACCOUNT">
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 8 }}>
               <FieldLabel>Display Name</FieldLabel>
               <TextInput value={settings.userName} onChange={v => set("userName", v)} />
             </div>
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 10 }}>
               <FieldLabel>Email</FieldLabel>
               <TextInput value={settings.userEmail} onChange={v => set("userEmail", v)} />
             </div>
-            <PrimaryButton style={{ fontSize: 13, padding: "8px 20px", borderRadius: 8 }}>
+            <PrimaryButton style={{ fontSize: 12, padding: "7px 18px", borderRadius: 8 }}>
               Save Changes
             </PrimaryButton>
           </SettingsCard>
@@ -91,11 +91,11 @@ export default function SettingsPage() {
 function SettingsCard({ title, sectionLabel, children }) {
   return (
     <div style={{
-      background: COLORS.card, borderRadius: 16,
-      border: `1px solid ${COLORS.border}`, padding: "20px",
+      background: COLORS.card, borderRadius: 14,
+      border: `1px solid ${COLORS.border}`, padding: "14px 16px",
     }}>
       <SectionLabel>{sectionLabel}</SectionLabel>
-      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 16, marginBottom: 16 }}>
+      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
         {title}
       </div>
       {children}
@@ -107,12 +107,12 @@ function SettingRow({ label, desc, children, last = false }) {
   return (
     <div style={{
       display: "flex", justifyContent: "space-between", alignItems: "center",
-      padding: "14px 0",
+      padding: "8px 0",
       borderBottom: last ? "none" : `1px solid ${COLORS.border}`,
     }}>
       <div>
-        <div style={{ color: COLORS.text, fontSize: 14, fontWeight: 500 }}>{label}</div>
-        {desc && <div style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>{desc}</div>}
+        <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500 }}>{label}</div>
+        {desc && <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 1 }}>{desc}</div>}
       </div>
       {children}
     </div>
@@ -120,7 +120,7 @@ function SettingRow({ label, desc, children, last = false }) {
 }
 
 function FieldLabel({ children }) {
-  return <div style={{ color: COLORS.textSec, fontSize: 12, marginBottom: 6 }}>{children}</div>;
+  return <div style={{ color: COLORS.textSec, fontSize: 11, marginBottom: 4 }}>{children}</div>;
 }
 
 function TextInput({ value, onChange }) {
@@ -131,8 +131,8 @@ function TextInput({ value, onChange }) {
       style={{
         width: "100%", boxSizing: "border-box",
         background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-        borderRadius: 8, padding: "8px 12px",
-        color: COLORS.text, fontFamily: "inherit", fontSize: 14, outline: "none",
+        borderRadius: 8, padding: "7px 10px",
+        color: COLORS.text, fontFamily: "inherit", fontSize: 13, outline: "none",
       }}
     />
   );

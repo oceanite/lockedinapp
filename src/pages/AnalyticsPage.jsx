@@ -1,132 +1,204 @@
-import { useMemo } from "react";
 import { COLORS } from "../constants/theme";
-import { ANALYTICS_DATA } from "../constants/data";
-import { generateHeatmap } from "../utils/helpers";
 import { Card, Badge } from "../components/ui/index";
-import { MiniLineChart, MiniBarChart, HeatmapCell, DayLabels, CircleProgress } from "../components/ui/Charts";
+import {
+  AxisLineChart, AxisBarChart, StackedBarChart,
+  HourlyHeatmap, CircleProgress,
+} from "../components/ui/Charts";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
+import {
+  useAnalytics, DAYS, QUADRANT_STACK, fmtHour,
+} from "../hooks/useAnalytics";
 
-const TOP_CARDS = [
-  { icon: "⏱", label: "Total Deep Work (Weekly)", value: "53h 45m", badge: "+20%", color: COLORS.blue,  type: "line" },
-  { icon: "◎", label: "Avg. Focus Session Length", value: "338m",   badge: "+10%", color: COLORS.green, type: "bar"  },
-  { icon: "🛡", label: "Distractions Blocked",      value: "98",     badge: null,   color: COLORS.red,   type: "bar"  },
-];
+const LEGEND_ORDER = [...QUADRANT_STACK].reverse();
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function niceTicks(defaultTicks, data) {
+  const max = Math.max(...data, 0);
+  const cap = defaultTicks[defaultTicks.length - 1];
+  if (max <= cap) return defaultTicks;
+  const step = defaultTicks[1] - defaultTicks[0];
+  const newMax = Math.ceil(max / step) * step;
+  return [0, newMax / 3, (2 * newMax) / 3, newMax].map(n => +n.toFixed(0));
+}
 
 export default function AnalyticsPage() {
-  const heatmap = useMemo(() => generateHeatmap(), []);
-  const d = ANALYTICS_DATA;
+  const a = useAnalytics();
 
   return (
-    <PageLayout>
+    <PageLayout centered>
       <PageHeader title="Analytics" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
-        {TOP_CARDS.map(c => (
-          <Card key={c.label}>
-            <div style={{ color: COLORS.textSec, fontSize: 12, marginBottom: 6 }}>{c.icon} {c.label}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <span style={{ color: COLORS.text, fontSize: 22, fontWeight: 800 }}>{c.value}</span>
-              {c.badge && <Badge color={COLORS.green}>↑ {c.badge}</Badge>}
-            </div>
-            {c.type === "line"
-              ? <MiniLineChart data={d.deepWork}     color={c.color} />
-              : <MiniBarChart  data={c.label.includes("Dis") ? d.distractions : d.focusSession} color={c.color} />}
-            <DayLabels days={d.days} />
-          </Card>
-        ))}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <KpiCard
+          icon="⏱"
+          label="Total Deep Work (Weekly)"
+          value={a.totalDeepWorkLabel}
+          delta="+20%"
+          accent={COLORS.green}
+          chart={
+            <AxisLineChart
+              data={a.deepWorkByDay} days={DAYS}
+              color={COLORS.green}
+              yTicks={niceTicks([0, 8, 16, 24], a.deepWorkByDay)}
+              ySuffix="h"
+              fill
+            />
+          }
+        />
+        <KpiCard
+          icon="◎"
+          label="Avg. Focus Session Length"
+          value={`${a.avgFocusMin}m`}
+          delta="+10%"
+          accent={COLORS.green}
+          chart={
+            <AxisBarChart
+              data={a.avgFocusByDay} days={DAYS}
+              color={COLORS.green}
+              yTicks={niceTicks([0, 30, 60, 90], a.avgFocusByDay)}
+              ySuffix="m"
+            />
+          }
+        />
+        <KpiCard
+          icon="!"
+          label="Distractions Blocked"
+          value={`${a.distractionAttempts} Attempts`}
+          accent={COLORS.red}
+          chart={
+            <AxisBarChart
+              data={a.distractionsByDay} days={DAYS}
+              color={COLORS.red}
+              yTicks={niceTicks([0, 10, 20, 30], a.distractionsByDay)}
+            />
+          }
+        />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <TaskExecutionCard />
-        <HeatmapCard heatmap={heatmap} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <TaskExecutionCard a={a} />
+        <HeatmapCard a={a} />
       </div>
     </PageLayout>
   );
 }
 
-function TaskExecutionCard() {
-  const quadColors = [COLORS.red, COLORS.orange, COLORS.green, "#4A5578"];
+function KpiCard({ icon, label, value, delta, accent, chart }) {
   return (
-    <Card>
-      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 15, marginBottom: 16 }}>
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <span style={{ color: accent, fontSize: 14 }}>{icon}</span>
+        <span style={{ color: COLORS.text, fontSize: 13, fontWeight: 700 }}>{label}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+        <span style={{ color: COLORS.text, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{value}</span>
+        {delta && <Badge color={COLORS.green}>↑ {delta}</Badge>}
+      </div>
+      {chart}
+    </Card>
+  );
+}
+
+function TaskExecutionCard({ a }) {
+  return (
+    <Card style={{ padding: 14 }}>
+      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
         Analisis Eksekusi Tugas
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-        <div style={{ background: COLORS.bg, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ color: COLORS.textSec, fontSize: 11, marginBottom: 8 }}>Tingkat Penyelesaian</div>
-          <CircleProgress value={0.75} size={60} color={COLORS.green} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+        <div style={{
+          background: COLORS.bg, borderRadius: 10, padding: 10,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <CircleProgress value={a.completionRate} size={42} color={COLORS.green} />
+          <div>
+            <div style={{ color: COLORS.textSec, fontSize: 10, lineHeight: 1.3 }}>
+              Tingkat Penyelesaian<br />Tugas Minggu Ini
+            </div>
+            <div style={{ color: COLORS.text, fontWeight: 800, fontSize: 14, marginTop: 2 }}>
+              {Math.round(a.completionRate * 100)}% Selesai
+            </div>
+          </div>
         </div>
-        <div style={{ background: COLORS.bg, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ color: COLORS.textSec, fontSize: 11, marginBottom: 6 }}>Tugas Selesai (Minggu Ini)</div>
-          <div style={{ color: COLORS.text, fontWeight: 800, fontSize: 20 }}>✓ 16 Tugas</div>
+        <div style={{
+          background: COLORS.bg, borderRadius: 10, padding: 10,
+          display: "flex", flexDirection: "column", justifyContent: "center", gap: 2,
+        }}>
+          <div style={{ color: COLORS.textSec, fontSize: 10, lineHeight: 1.3 }}>
+            Tugas Selesai (Minggu Ini)
+          </div>
+          <div style={{ color: COLORS.text, fontWeight: 800, fontSize: 18 }}>
+            ✓ {a.totalDoneWeek} Tugas
+          </div>
         </div>
       </div>
 
-      <div style={{ color: COLORS.textSec, fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
-        Penyelesaian Harian per Kategori
+      <div style={{ color: COLORS.text, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+        Penyelesaian Tugas Harian berdasarkan Kategori Urgensi
       </div>
 
-      {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((day) => (
-        <div key={day} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 10, width: 24 }}>{day}</span>
-          <div style={{ flex: 1, height: 12, display: "flex", borderRadius: 4, overflow: "hidden" }}>
-            {quadColors.map((c, ci) => (
-              <div key={ci} style={{ flex: Math.random() * 3 + 0.5, background: c, opacity: 0.85 }} />
-            ))}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center" }}>
+        <div style={{ width: "65%", justifySelf: "center" }}>
+          <StackedBarChart
+            series={a.dailyByQuadrant}
+            days={DAYS}
+            yLabel="Jumlah Tugas"
+          />
+          <div style={{ color: COLORS.textMuted, fontSize: 9, textAlign: "center", marginTop: 2 }}>
+            Harian (Mon – Sun)
           </div>
         </div>
-      ))}
-
-      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-        {[["Do Now", COLORS.red], ["Schedule", COLORS.orange], ["Delegate", COLORS.green], ["Delete", "#4A5578"]].map(([l, c]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />
-            <span style={{ color: COLORS.textMuted, fontSize: 10 }}>{l}</span>
-          </div>
-        ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {LEGEND_ORDER.map(q => (
+            <div key={q.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: q.color }} />
+              <span style={{ color: COLORS.textSec, fontSize: 10 }}>{q.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   );
 }
 
-function HeatmapCard({ heatmap }) {
+function HeatmapCard({ a }) {
+  const hasData = a.peakHours.length > 0 || a.peakDays.length > 0;
   return (
-    <Card>
-      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 15, marginBottom: 16 }}>
+    <Card style={{ padding: 14 }}>
+      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
         Hourly Focus Heatmap & Peak Times
       </div>
 
-      <div style={{ overflowX: "auto", marginBottom: 12 }}>
-        <div style={{ display: "flex", marginBottom: 4, paddingLeft: 28 }}>
-          {[0, 4, 8, 12, 16, 20, 24].map(h => (
-            <div key={h} style={{ flex: h === 0 ? 0 : 1, color: COLORS.textMuted, fontSize: 9 }}>{h}h</div>
-          ))}
-        </div>
-        {heatmap.map((row, di) => (
-          <div key={di} style={{ display: "flex", alignItems: "center", marginBottom: 2 }}>
-            <span style={{ color: COLORS.textMuted, fontSize: 9, width: 24 }}>{DAY_LABELS[di]}</span>
-            <div style={{ display: "flex" }}>
-              {row.map((v, hi) => <HeatmapCell key={hi} intensity={v} />)}
-            </div>
-          </div>
-        ))}
+      {/* heatmap centered horizontally, kept at intrinsic pixel size */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+        <HourlyHeatmap data={a.heatmap} days={DAYS} />
       </div>
 
-      <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
-        <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+      <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
+        <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 12, marginBottom: 4 }}>
           Your Peak Focus Times:
         </div>
-        {["09:00 AM – 11:00 AM", "22:00 PM – 02:00 AM"].map(t => (
-          <Bullet key={t} text={t} color={COLORS.green} />
-        ))}
-        <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 13, margin: "10px 0 6px" }}>
+        {a.peakHours.length === 0
+          ? <Empty text="Not enough sessions yet" />
+          : a.peakHours.map((r, i) => (
+              <Bullet key={i} color={COLORS.green}
+                text={`${fmtHour(r.from)} – ${fmtHour(r.to)}`} />
+            ))}
+
+        <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 12, margin: "8px 0 4px" }}>
           Your Peak Focus Days:
         </div>
-        {["Saturday", "Sunday"].map(t => (
-          <Bullet key={t} text={t} color={COLORS.blue} />
-        ))}
+        {a.peakDays.length === 0
+          ? <Empty text="Run more sessions to see your peak days" />
+          : a.peakDays.map(d => (
+              <Bullet key={d} color={COLORS.blue} text={d} />
+            ))}
+
+        {!hasData && (
+          <div style={{ color: COLORS.textMuted, fontSize: 10, marginTop: 6 }}>
+            Complete some focus sessions in the Focus Room to populate these stats.
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -134,9 +206,13 @@ function HeatmapCard({ heatmap }) {
 
 function Bullet({ text, color }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
       <div style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
-      <span style={{ color: COLORS.textSec, fontSize: 12 }}>{text}</span>
+      <span style={{ color: COLORS.textSec, fontSize: 11 }}>{text}</span>
     </div>
   );
+}
+
+function Empty({ text }) {
+  return <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 3 }}>{text}</div>;
 }

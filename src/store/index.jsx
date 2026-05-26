@@ -1,15 +1,26 @@
 import { createContext, useContext, useReducer, useEffect } from "react";
-import { INITIAL_TASKS, INITIAL_SETTINGS } from "../constants/data";
+import {
+  INITIAL_TASKS, INITIAL_SETTINGS, INITIAL_BLOCKED_SITES,
+  buildSeedTimerHistory,
+} from "../constants/data";
+
+// Bump this whenever data.js seed contents change — forces an in-place
+// re-seed on next load so prototype demos stay consistent.
+const SEED_VERSION = 2;
 
 // ─────────────────────────────────────────────────────────────
 // STORAGE KEYS
 // ─────────────────────────────────────────────────────────────
 const KEYS = {
-  tasks:    "lockedin:tasks",
-  settings: "lockedin:settings",
-  sessions: "lockedin:sessions",
-  date:     "lockedin:date",       // untuk reset sesi harian
-  page:     "lockedin:page",
+  tasks:        "lockedin:tasks",
+  settings:     "lockedin:settings",
+  sessions:     "lockedin:sessions",
+  date:         "lockedin:date",       // untuk reset sesi harian
+  page:         "lockedin:page",
+  blockedSites: "lockedin:blockedSites",
+  timerHistory: "lockedin:timerHistory",
+  musicState:   "lockedin:musicState",
+  seedVersion:  "lockedin:seedVersion",
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -50,16 +61,47 @@ function resolveSessionsForToday() {
   return load(KEYS.sessions, 0);
 }
 
+/**
+ * One-shot dummy seed for prototyping. Runs whenever the stored
+ * SEED_VERSION is behind the current code's. Overwrites the seeded
+ * keys in-place so the analytics page always has data to render.
+ */
+function runSeedIfNeeded() {
+  const storedVersion = load(KEYS.seedVersion, 0);
+  if (storedVersion >= SEED_VERSION) return;
+
+  const history = buildSeedTimerHistory();
+  const today = todayStr();
+  const sessionsToday = history.filter(h =>
+    h.completedAt.slice(0, 10) === today
+  ).length;
+
+  save(KEYS.tasks,        INITIAL_TASKS);
+  save(KEYS.blockedSites, INITIAL_BLOCKED_SITES);
+  save(KEYS.timerHistory, history);
+  save(KEYS.sessions,     sessionsToday);
+  save(KEYS.date,         today);
+  save(KEYS.seedVersion,  SEED_VERSION);
+}
+
 // ─────────────────────────────────────────────────────────────
 // INITIAL STATE — hydrate dari localStorage saat pertama load
 // ─────────────────────────────────────────────────────────────
 
 function buildInitialState() {
+  runSeedIfNeeded();
   return {
-    page:     load(KEYS.page, "dashboard"),
-    tasks:    load(KEYS.tasks, INITIAL_TASKS),
-    settings: load(KEYS.settings, INITIAL_SETTINGS),
-    sessions: resolveSessionsForToday(),
+    page:         load(KEYS.page, "dashboard"),
+    tasks:        load(KEYS.tasks, INITIAL_TASKS),
+    settings:     load(KEYS.settings, INITIAL_SETTINGS),
+    sessions:     resolveSessionsForToday(),
+    blockedSites: load(KEYS.blockedSites, INITIAL_BLOCKED_SITES),
+    timerHistory: load(KEYS.timerHistory, buildSeedTimerHistory()),
+    musicState:   load(KEYS.musicState, {
+      selectedId: null,
+      volume:     0.6,
+      loop:       true,
+    }),
   };
 }
 
@@ -115,6 +157,41 @@ function reducer(state, action) {
       };
     }
 
+    case "ADD_BLOCKED_SITE": {
+      const site = action.payload;
+      if (state.blockedSites.some(s => s.url === site.url)) return state;
+      return { ...state, blockedSites: [...state.blockedSites, site] };
+    }
+
+    case "REMOVE_BLOCKED_SITE":
+      return {
+        ...state,
+        blockedSites: state.blockedSites.filter(s => s.id !== action.payload),
+      };
+
+    case "TOGGLE_BLOCKED_SITE":
+      return {
+        ...state,
+        blockedSites: state.blockedSites.map(s =>
+          s.id === action.payload ? { ...s, active: !s.active } : s
+        ),
+      };
+
+    case "ADD_TIMER_HISTORY":
+      return {
+        ...state,
+        timerHistory: [action.payload, ...state.timerHistory].slice(0, 50),
+      };
+
+    case "CLEAR_TIMER_HISTORY":
+      return { ...state, timerHistory: [] };
+
+    case "UPDATE_MUSIC_STATE":
+      return {
+        ...state,
+        musicState: { ...state.musicState, ...action.payload },
+      };
+
     default:
       return state;
   }
@@ -130,10 +207,13 @@ export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, buildInitialState);
 
   // Setiap kali state berubah, sync yang relevan ke localStorage
-  useEffect(() => { save(KEYS.tasks,    state.tasks);    }, [state.tasks]);
-  useEffect(() => { save(KEYS.settings, state.settings); }, [state.settings]);
-  useEffect(() => { save(KEYS.sessions, state.sessions); }, [state.sessions]);
-  useEffect(() => { save(KEYS.page,     state.page);     }, [state.page]);
+  useEffect(() => { save(KEYS.tasks,        state.tasks);        }, [state.tasks]);
+  useEffect(() => { save(KEYS.settings,     state.settings);     }, [state.settings]);
+  useEffect(() => { save(KEYS.sessions,     state.sessions);     }, [state.sessions]);
+  useEffect(() => { save(KEYS.page,         state.page);         }, [state.page]);
+  useEffect(() => { save(KEYS.blockedSites, state.blockedSites); }, [state.blockedSites]);
+  useEffect(() => { save(KEYS.timerHistory, state.timerHistory); }, [state.timerHistory]);
+  useEffect(() => { save(KEYS.musicState,   state.musicState);   }, [state.musicState]);
 
   return (
     <StoreContext.Provider value={{ state, dispatch }}>
@@ -153,10 +233,16 @@ export function useStore() {
 // ─────────────────────────────────────────────────────────────
 
 export const actions = {
-  setPage:           (page)           => ({ type: "SET_PAGE",           payload: page }),
-  addTask:           (quadrant, task) => ({ type: "ADD_TASK",           payload: { quadrant, task } }),
-  toggleTask:        (quadrant, id)   => ({ type: "TOGGLE_TASK",        payload: { quadrant, id } }),
-  removeTask:        (quadrant, id)   => ({ type: "REMOVE_TASK",        payload: { quadrant, id } }),
-  incrementSessions: ()               => ({ type: "INCREMENT_SESSIONS"  }),
-  updateSetting:     (key, value)     => ({ type: "UPDATE_SETTING",     payload: { key, value } }),
+  setPage:             (page)           => ({ type: "SET_PAGE",             payload: page }),
+  addTask:             (quadrant, task) => ({ type: "ADD_TASK",             payload: { quadrant, task } }),
+  toggleTask:          (quadrant, id)   => ({ type: "TOGGLE_TASK",          payload: { quadrant, id } }),
+  removeTask:          (quadrant, id)   => ({ type: "REMOVE_TASK",          payload: { quadrant, id } }),
+  incrementSessions:   ()               => ({ type: "INCREMENT_SESSIONS"    }),
+  updateSetting:       (key, value)     => ({ type: "UPDATE_SETTING",       payload: { key, value } }),
+  addBlockedSite:      (site)           => ({ type: "ADD_BLOCKED_SITE",     payload: site }),
+  removeBlockedSite:   (id)             => ({ type: "REMOVE_BLOCKED_SITE",  payload: id }),
+  toggleBlockedSite:   (id)             => ({ type: "TOGGLE_BLOCKED_SITE",  payload: id }),
+  addTimerHistory:     (entry)          => ({ type: "ADD_TIMER_HISTORY",    payload: entry }),
+  clearTimerHistory:   ()               => ({ type: "CLEAR_TIMER_HISTORY"   }),
+  updateMusicState:    (patch)          => ({ type: "UPDATE_MUSIC_STATE",   payload: patch }),
 };
