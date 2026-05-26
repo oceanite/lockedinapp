@@ -1,6 +1,6 @@
 import { COLORS } from "../../constants/theme";
 
-export function PageLayout({ children }) {
+export function PageLayout({ children, centered = false }) {
   return (
     <main style={{
       marginLeft: 180,
@@ -8,6 +8,12 @@ export function PageLayout({ children }) {
       padding: "28px 32px",
       maxWidth: "100%",
       minHeight: "100vh",
+      boxSizing: "border-box",
+      ...(centered ? {
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+      } : {}),
     }}>
       {children}
     </main>

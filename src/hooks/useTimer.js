@@ -26,6 +26,14 @@ export function useTimer({ onComplete } = {}) {
     if (mode === "custom") setSeconds(min * 60);
   }, [mode]);
 
+  // Quick-pick: jumps straight into custom mode with the supplied minutes.
+  const applyQuickPick = useCallback((min) => {
+    setMode("custom");
+    setCustomMin(min);
+    setSeconds(min * 60);
+    setRunning(false);
+  }, []);
+
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => {
@@ -53,6 +61,6 @@ export function useTimer({ onComplete } = {}) {
 
   return {
     mode, seconds, running, customMin, totalSecs, progress, display,
-    setRunning, switchMode, reset, setCustomDuration,
+    setRunning, switchMode, reset, setCustomDuration, applyQuickPick,
   };
 }

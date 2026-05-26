@@ -37,3 +37,14 @@ export const TIMER_PRESETS = {
   long:     15 * 60,
   custom:   30 * 60,
 };
+
+// Quick-pick presets shown as shortcut buttons (in minutes)
+export const QUICK_PICKS = [30, 60, 90, 120];
+
+// Built-in music tracks (preset vibes shown in the prototype)
+export const MUSIC_PRESETS = [
+  { id: "deadline",   label: "Deadline Panic",  icon: "💡", color: "#FF4D4D" },
+  { id: "brainstorm", label: "Deep Brainstorm", icon: "🧠", color: "#9B59FF" },
+  { id: "chill",      label: "Chill Study",     icon: "💻", color: "#00C48C" },
+  { id: "zen",        label: "Zen Mode",        icon: "🌸", color: "#00E5FF" },
+];

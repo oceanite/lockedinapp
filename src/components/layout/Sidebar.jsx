@@ -1,5 +1,6 @@
 import { COLORS, NAV_ITEMS } from "../../constants/theme";
 import { useStore, actions } from "../../store/index";
+import lockedInLogo from "../../assets/lockedin-logo.png";
 
 export function Sidebar() {
   const { state, dispatch } = useStore();
@@ -18,10 +19,21 @@ export function Sidebar() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 32, height: 32, borderRadius: "50%",
-            background: "linear-gradient(135deg,#FF416C,#FF4B2B)",
+            overflow: "hidden", background: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 900, fontSize: 14, color: "#fff",
-          }}>L</div>
+            border: `1px solid ${COLORS.border}`,
+          }}>
+            <img
+              src={lockedInLogo}
+              alt="LockedIn logo"
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "block",
+                objectFit: "cover",
+              }}
+            />
+          </div>
           <div>
             <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
               LockedIn
