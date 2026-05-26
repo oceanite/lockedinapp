@@ -1,0 +1,29 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0D0F1E;
+  color: #fff;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+input, select, button, textarea {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080A14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E2340;
+  border-radius: 3px;
+}
