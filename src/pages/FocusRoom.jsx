@@ -4,6 +4,7 @@ import { useStore, actions } from "../store/index";
 import { useTimer } from "../hooks/useTimer";
 import { Card } from "../components/ui/index";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
+import { SynthEngine, playAlarm, primeAudio } from "../utils/audio";
 
 const MODES = [
   { id: "pomodoro", label: "Pomodoro · 25m" },
@@ -24,18 +25,32 @@ export default function FocusRoom() {
   const [tipIndex] = useState(() => Math.floor(Math.random() * FOCUS_TIPS.length));
   // null = default (sessions + tip); "block" | "music" | "history" otherwise
   const [activePanel, setActivePanel] = useState(null);
+  // session-complete popup payload ({ label, durationSecs }) or null
+  const [completed, setCompleted] = useState(null);
+
+  const soundOn = state.settings?.sound !== false;
 
   const timer = useTimer({
     onComplete: () => {
+      const finished = {
+        label: labelForMode(timer.mode, timer.customMin),
+        durationSecs: timer.totalSecs,
+        mode: timer.mode,
+      };
       dispatch(actions.incrementSessions());
       dispatch(actions.addTimerHistory({
         id: Date.now(),
         mode: timer.mode,
-        label: labelForMode(timer.mode, timer.customMin),
+        label: finished.label,
         durationSecs: timer.totalSecs,
         completedAt: new Date().toISOString(),
         status: "completed",
       }));
+      // pause any music so the alarm is heard clearly
+      SynthEngine.stop();
+      if (soundOn) playAlarm({ volume: 0.5, repeats: 3 });
+      fireBrowserNotification(finished, state.settings);
+      setCompleted(finished);
     },
   });
 
@@ -180,6 +195,8 @@ export default function FocusRoom() {
               </div>
             )}
             <button onClick={() => {
+              // user gesture → unlock the audio context for the alarm later
+              primeAudio();
               const wasRunning = timer.running;
               if (!wasRunning && timer.seconds === timer.totalSecs) {
                 // log a "started" entry only when fresh start
@@ -247,7 +264,99 @@ export default function FocusRoom() {
 
       {/* hidden audio player for music */}
       <MusicEngine />
+
+      {/* session-complete popup */}
+      {completed && (
+        <CompletionModal
+          info={completed}
+          sessions={state.sessions}
+          onClose={() => setCompleted(null)}
+          onRestart={() => {
+            setCompleted(null);
+            primeAudio();
+            timer.reset();
+            timer.setRunning(true);
+          }}
+        />
+      )}
     </PageLayout>
+  );
+}
+
+// best-effort desktop notification (no-op if unsupported or denied)
+function fireBrowserNotification(info, settings) {
+  if (settings?.notifications === false) return;
+  if (typeof Notification === "undefined") return;
+  const show = () => {
+    try {
+      new Notification("Focus session complete! 🎉", {
+        body: `${info.label} · ${Math.round(info.durationSecs / 60)} min done. Time for a break.`,
+      });
+    } catch { /* some browsers require a SW for notifications */ }
+  };
+  if (Notification.permission === "granted") show();
+  else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(p => { if (p === "granted") show(); });
+  }
+}
+
+function CompletionModal({ info, sessions, onClose, onRestart }) {
+  const mins = Math.round(info.durationSecs / 60);
+  // close on Escape
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(8,10,20,0.7)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: COLORS.card, border: `1px solid ${COLORS.border}`,
+          borderRadius: 18, padding: "28px 28px 22px", width: 340, maxWidth: "90vw",
+          textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}
+      >
+        <div style={{
+          width: 64, height: 64, borderRadius: "50%", margin: "0 auto 16px",
+          background: `${COLORS.green}22`, border: `2px solid ${COLORS.green}`,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
+        }}>🎉</div>
+
+        <div style={{ color: COLORS.text, fontSize: 20, fontWeight: 800, marginBottom: 6 }}>
+          Session Complete!
+        </div>
+        <div style={{ color: COLORS.textSec, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+          You finished <strong style={{ color: COLORS.text }}>{info.label}</strong> ·{" "}
+          <strong style={{ color: COLORS.text }}>{mins} min</strong>.<br />
+          That's <strong style={{ color: COLORS.green }}>{sessions}</strong> session{sessions === 1 ? "" : "s"} today. Nice work!
+        </div>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onRestart} style={{
+            flex: 1, background: COLORS.blue, color: "#fff", border: "none",
+            borderRadius: 12, padding: "11px 0",
+            fontFamily: "inherit", fontWeight: 800, fontSize: 14, cursor: "pointer",
+          }}>▶ Start Another</button>
+          <button onClick={onClose} style={{
+            flex: 1, background: "transparent", color: COLORS.textSec,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 12, padding: "11px 0",
+            fontFamily: "inherit", fontWeight: 700, fontSize: 14, cursor: "pointer",
+          }}>Dismiss</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -650,37 +759,59 @@ function MusicPanel({ onClose }) {
   );
 }
 
-// MusicEngine plays the selected custom track. Preset ids ("deadline" etc.)
-// don't carry an audio source, so they act as a "vibe" selection only.
+// MusicEngine plays the selected track.
+//  • custom uploads  → played via a hidden <audio> element
+//  • preset "vibes"  → synthesized looping ambient pad (Web Audio)
 function MusicEngine() {
   const { state } = useStore();
   const audioRef = useRef(null);
+  const { selectedId, volume, loop } = state.musicState;
 
   const selectedTrack = useMemo(() => {
-    const id = state.musicState.selectedId;
-    if (!id) return null;
-    if (id.startsWith("custom-")) return customTrackStore.get(id) || null;
+    if (!selectedId) return null;
+    if (selectedId.startsWith("custom-")) return customTrackStore.get(selectedId) || null;
     return null;
-  }, [state.musicState.selectedId]);
+  }, [selectedId]);
 
+  const isPreset = SynthEngine.isPreset(selectedId);
+
+  // custom-track playback
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
     if (selectedTrack?.url) {
       if (a.src !== selectedTrack.url) a.src = selectedTrack.url;
-      a.loop = state.musicState.loop;
-      a.volume = state.musicState.volume;
+      a.loop = loop;
+      a.volume = volume;
       a.play().catch(() => { /* autoplay may be blocked until user gesture */ });
     } else {
       a.pause();
       a.removeAttribute("src");
       a.load();
     }
-  }, [selectedTrack, state.musicState.loop]);
+  }, [selectedTrack, loop]);
 
+  // preset synth playback
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = state.musicState.volume;
-  }, [state.musicState.volume]);
+    if (isPreset) {
+      SynthEngine.start(selectedId, volume);
+    } else {
+      SynthEngine.stop();
+    }
+    // stop synth on unmount
+    return () => { if (!isPreset) SynthEngine.stop(); };
+  }, [selectedId, isPreset]);
+
+  // keep both engines in sync with the volume slider
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+    if (isPreset) SynthEngine.setVolume(volume);
+  }, [volume, isPreset]);
+
+  // stop everything when the component unmounts (leaving Focus Room)
+  useEffect(() => {
+    return () => SynthEngine.stop();
+  }, []);
 
   return <audio ref={audioRef} style={{ display: "none" }} />;
 }

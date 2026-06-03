@@ -58,12 +58,15 @@ export default function SettingsPage() {
           </SettingsCard>
 
           <SettingsCard title="Theme Engine" sectionLabel="APPEARANCE">
-            <SettingRow label="Color Theme" last>
+            <SettingRow label="Color Theme" desc="3 dark · 3 light" last>
               <Select value={settings.theme} onChange={v => set("theme", v)}
                 options={[
                   { value: "dark",     label: "Dark (Default)" },
                   { value: "midnight", label: "Midnight" },
                   { value: "ocean",    label: "Ocean" },
+                  { value: "daylight", label: "Daylight" },
+                  { value: "sand",     label: "Sand" },
+                  { value: "rose",     label: "Rose" },
                 ]}
               />
             </SettingRow>
@@ -108,7 +111,7 @@ function SettingRow({ label, desc, children, last = false }) {
     <div style={{
       display: "flex", justifyContent: "space-between", alignItems: "center",
       padding: "8px 0",
-      borderBottom: last ? "none" : `1px solid ${COLORS.border}`,
+      borderBottom: last ? "none" : `1px solid ${COLORS.textMuted}55`,
     }}>
       <div>
         <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500 }}>{label}</div>

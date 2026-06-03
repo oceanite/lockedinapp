@@ -43,15 +43,17 @@ export function Toggle({ on, onChange }) {
       onClick={() => onChange(!on)}
       style={{
         width: 46, height: 26, borderRadius: 13,
-        background: on ? COLORS.blue : `${COLORS.border}88`,
-        cursor: "pointer", position: "relative", transition: "background 0.2s",
+        background: on ? COLORS.blue : COLORS.textMuted,
+        border: `1px solid ${on ? COLORS.blue : COLORS.textSec}`,
+        boxSizing: "border-box",
+        cursor: "pointer", position: "relative", transition: "background 0.2s, border-color 0.2s",
         flexShrink: 0,
       }}
     >
       <div style={{
-        position: "absolute", top: 3, left: on ? 23 : 3,
-        width: 20, height: 20, borderRadius: "50%", background: "#fff",
-        transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,.3)",
+        position: "absolute", top: 3, left: on ? 22 : 3,
+        width: 18, height: 18, borderRadius: "50%", background: "#fff",
+        transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,.4)",
       }} />
     </div>
   );
@@ -60,7 +62,7 @@ export function Toggle({ on, onChange }) {
 export function SectionLabel({ children }) {
   return (
     <div style={{
-      color: "#00E5FF", fontSize: 11, fontWeight: 700,
+      color: COLORS.accent, fontSize: 11, fontWeight: 700,
       letterSpacing: 1.5, marginBottom: 4,
     }}>
       {children}

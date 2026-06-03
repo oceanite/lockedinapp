@@ -48,9 +48,39 @@ function applySort(tasks, sort) {
 }
 
 // ── Page ────────────────────────────────────────────────────
+// Styles that depend on COLORS are built per-render so they follow theme changes.
+function buildStyles() {
+  return {
+    inputStyle: {
+      flex: "2 1 200px",
+      background: COLORS.bg,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 8, padding: "8px 12px",
+      color: COLORS.text, fontFamily: "inherit",
+      fontSize: 14, outline: "none",
+    },
+    selectStyle: {
+      flex: "1 1 120px",
+      background: COLORS.bg,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 8, padding: "8px 12px",
+      color: COLORS.text, fontFamily: "inherit", fontSize: 14,
+    },
+    addBtnStyle: {
+      background: COLORS.green, color: "#fff", border: "none",
+      borderRadius: 8, padding: "8px 20px",
+      fontFamily: "inherit", fontWeight: 700, fontSize: 14, cursor: "pointer",
+    },
+    fieldLabelStyle: {
+      color: COLORS.textSec, fontSize: 11, fontWeight: 600,
+    },
+  };
+}
+
 export default function TaskPage() {
   const { state, dispatch } = useStore();
   const { tasks } = state;
+  const { inputStyle, selectStyle, addBtnStyle, fieldLabelStyle } = buildStyles();
 
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ text: "", quadrant: "doNow", deadline: "" });
@@ -91,29 +121,38 @@ export default function TaskPage() {
       {showAdd && (
         <Card style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 700, color: COLORS.text, marginBottom: 12 }}>New Task</div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input
-              value={form.text}
-              onChange={e => setForm(p => ({ ...p, text: e.target.value }))}
-              onKeyDown={e => e.key === "Enter" && handleAdd()}
-              placeholder="Task description…"
-              style={inputStyle}
-            />
-            <select
-              value={form.quadrant}
-              onChange={e => setForm(p => ({ ...p, quadrant: e.target.value }))}
-              style={selectStyle}
-            >
-              {QUADRANTS.map(q => (
-                <option key={q.key} value={q.key}>{q.label}</option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={form.deadline}
-              onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))}
-              style={{ ...inputStyle, flex: "1 1 140px" }}
-            />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div style={{ flex: "2 1 200px", display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={fieldLabelStyle}>Description</label>
+              <input
+                value={form.text}
+                onChange={e => setForm(p => ({ ...p, text: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && handleAdd()}
+                placeholder="Task description…"
+                style={{ ...inputStyle, flex: "unset", width: "100%" }}
+              />
+            </div>
+            <div style={{ flex: "1 1 120px", display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={fieldLabelStyle}>Quadrant</label>
+              <select
+                value={form.quadrant}
+                onChange={e => setForm(p => ({ ...p, quadrant: e.target.value }))}
+                style={{ ...selectStyle, flex: "unset", width: "100%" }}
+              >
+                {QUADRANTS.map(q => (
+                  <option key={q.key} value={q.key}>{q.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={fieldLabelStyle}>📅 Deadline</label>
+              <input
+                type="date"
+                value={form.deadline}
+                onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))}
+                style={{ ...inputStyle, flex: "unset", width: "100%", colorScheme: "dark", cursor: "pointer" }}
+              />
+            </div>
             <button onClick={handleAdd} style={addBtnStyle}>Add</button>
           </div>
         </Card>
@@ -293,25 +332,3 @@ function isOverdue(task) {
   if (!task.deadline || task.done) return false;
   return new Date(task.deadline) < new Date(new Date().toDateString());
 }
-
-// ── Shared styles ────────────────────────────────────────────
-const inputStyle = {
-  flex: "2 1 200px",
-  background: COLORS.bg,
-  border: `1px solid ${COLORS.border}`,
-  borderRadius: 8, padding: "8px 12px",
-  color: COLORS.text, fontFamily: "inherit",
-  fontSize: 14, outline: "none",
-};
-const selectStyle = {
-  flex: "1 1 120px",
-  background: COLORS.bg,
-  border: `1px solid ${COLORS.border}`,
-  borderRadius: 8, padding: "8px 12px",
-  color: COLORS.text, fontFamily: "inherit", fontSize: 14,
-};
-const addBtnStyle = {
-  background: COLORS.green, color: "#fff", border: "none",
-  borderRadius: 8, padding: "8px 20px",
-  fontFamily: "inherit", fontWeight: 700, fontSize: 14, cursor: "pointer",
-};

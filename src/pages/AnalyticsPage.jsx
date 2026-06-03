@@ -171,7 +171,7 @@ function HeatmapCard({ a }) {
 
       {/* heatmap centered horizontally, kept at intrinsic pixel size */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-        <HourlyHeatmap data={a.heatmap} days={DAYS} />
+        <HourlyHeatmap data={a.heatmap} days={DAYS} gray={COLORS.heatEmpty} active={COLORS.green} />
       </div>
 
       <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>

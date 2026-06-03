@@ -76,23 +76,39 @@ export function Sidebar() {
         padding: "16px 20px",
         borderTop: `1px solid ${COLORS.border}`,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          onClick={() => dispatch(actions.setPage("settings"))}
+          title="Open account settings"
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 10,
+            background: active === "settings" ? `${COLORS.blue}22` : "transparent",
+            border: "none", borderRadius: 10, padding: "6px 8px",
+            cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+            transition: "background 0.15s",
+          }}
+        >
           <div style={{
             width: 32, height: 32, borderRadius: "50%",
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16,
+            fontSize: 16, flexShrink: 0,
           }}>👤</div>
-          <div>
-            <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              color: COLORS.text, fontSize: 13, fontWeight: 600,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
               {state.settings.userName}
             </div>
-            <div style={{ color: COLORS.textMuted, fontSize: 11 }}>
+            <div style={{
+              color: COLORS.textMuted, fontSize: 11,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
               {state.settings.userEmail}
             </div>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );

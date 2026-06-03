@@ -69,7 +69,11 @@ export default function Dashboard() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <UrgencyMatrixPreview tasks={tasks} onAttack={() => dispatch(actions.setPage("analytics"))} />
+        <UrgencyMatrixPreview
+          tasks={tasks}
+          onAttack={() => dispatch(actions.setPage("task"))}
+          onToggle={(quadrant, id) => dispatch(actions.toggleTask(quadrant, id))}
+        />
         <AnalyticsSummaryCard onTrack={() => dispatch(actions.setPage("analytics"))} />
       </div>
     </PageLayout>
@@ -112,7 +116,10 @@ function EnergyCard({ onLockIn, height }) {
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green }} />
+            <div className="lamp-blink" style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: COLORS.green, color: COLORS.green,
+            }} />
             <span style={{ color: COLORS.text, fontSize: 13, fontWeight: 700 }}>Today's Progress</span>
           </div>
           <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2, marginBottom: 10 }}>
@@ -126,7 +133,7 @@ function EnergyCard({ onLockIn, height }) {
           </div>
         </div>
 
-        <EnergyGauge value={energy} label="Low" size={86} />
+        <EnergyGauge value={energy} label="Low" size={86} textColor={COLORS.text} />
       </div>
 
       {/* battery bar inner panel */}
@@ -135,7 +142,7 @@ function EnergyCard({ onLockIn, height }) {
         borderRadius: 12, padding: "8px 12px",
         display: "flex", alignItems: "center", gap: 10,
       }}>
-        <span style={{ color: COLORS.green, fontSize: 14 }}>⚡</span>
+        <span className="bolt-flicker" style={{ color: COLORS.green, fontSize: 14 }}>⚡</span>
         <BatteryBar value={progress} />
         <span style={{
           color: COLORS.text, fontSize: 12, fontWeight: 700,
@@ -171,18 +178,26 @@ function BatteryBar({ value, segments = 28, color = COLORS.green }) {
   const filled = Math.round((Math.max(0, Math.min(100, value)) / 100) * segments);
   return (
     <div style={{ flex: 1, display: "flex", gap: 2, alignItems: "center", height: 16 }}>
-      {Array.from({ length: segments }).map((_, i) => (
-        <div key={i} style={{
-          flex: 1, height: "100%",
-          background: i < filled ? color : `${color}33`,
-          borderRadius: 1.5,
-        }} />
-      ))}
+      {Array.from({ length: segments }).map((_, i) => {
+        const on = i < filled;
+        return (
+          <div
+            key={i}
+            className={on ? "an-cell" : undefined}
+            style={{
+              flex: 1, height: "100%",
+              background: on ? color : `${color}33`,
+              borderRadius: 1.5,
+              animationDelay: on ? `${i * 0.03}s` : undefined,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function UrgencyMatrixPreview({ tasks, onAttack }) {
+function UrgencyMatrixPreview({ tasks, onAttack, onToggle }) {
   return (
     <Card style={{ padding: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -205,13 +220,27 @@ function UrgencyMatrixPreview({ tasks, onAttack }) {
             {tasks[q.key].length === 0
               ? <div style={{ color: COLORS.textMuted, fontSize: 12, textAlign: "center" }}>No tasks</div>
               : tasks[q.key].slice(0, 3).map(t => (
-                <div key={t.id} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
+                <div
+                  key={t.id}
+                  onClick={() => onToggle(q.key, t.id)}
+                  style={{
+                    display: "flex", gap: 6, alignItems: "center", marginBottom: 4,
+                    cursor: "pointer", userSelect: "none",
+                  }}
+                >
                   <div style={{
-                    width: 12, height: 12, border: `1.5px solid ${COLORS.textSec}`,
-                    borderRadius: 2, flexShrink: 0,
-                  }} />
+                    width: 14, height: 14,
+                    border: `1.5px solid ${t.done ? q.color : COLORS.textSec}`,
+                    borderRadius: 3, flexShrink: 0,
+                    background: t.done ? q.color : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.15s",
+                  }}>
+                    {t.done && <span style={{ color: "#fff", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                  </div>
                   <span style={{
-                    color: COLORS.text, fontSize: 12,
+                    color: t.done ? COLORS.textMuted : COLORS.text, fontSize: 12,
+                    textDecoration: t.done ? "line-through" : "none",
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>{t.text}</span>
                 </div>
@@ -236,8 +265,8 @@ function AnalyticsSummaryCard({ onTrack }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 15 }}>▦ Analytics Summary</div>
         <button onClick={onTrack} style={{
-          background: "transparent", color: COLORS.text,
-          border: `1px solid ${COLORS.border}`, borderRadius: 8,
+          background: COLORS.blue, color: "#fff",
+          border: "none", borderRadius: 8,
           padding: "6px 16px", fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer",
         }}>Track Growth</button>
       </div>

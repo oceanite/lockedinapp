@@ -16,5 +16,10 @@ const ROUTES = {
 export function Router() {
   const { state } = useStore();
   const Page = ROUTES[state.page] ?? Dashboard;
-  return <Page />;
+  // keying on the page id remounts the wrapper, replaying the enter animation
+  return (
+    <div key={state.page} className="page-transition" style={{ flex: 1, minWidth: 0 }}>
+      <Page />
+    </div>
+  );
 }

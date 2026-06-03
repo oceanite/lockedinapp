@@ -38,15 +38,19 @@ export function MiniBarChart({ data, color }) {
 export function CircleProgress({ value = 0.75, size = 60, color = "#00C48C" }) {
   const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;
+  const target = circ * (1 - Math.max(0, Math.min(1, value))); // final offset
   return (
     <svg width={size} height={size}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none"
         stroke={`${color}33`} strokeWidth={6} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none"
         stroke={color} strokeWidth={6}
-        strokeDasharray={`${value * circ} ${circ}`}
+        strokeDasharray={circ}
+        strokeDashoffset={target}
         strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        className="an-ring"
+        style={{ "--dash-from": circ, "--dash-to": target }} />
     </svg>
   );
 }
@@ -57,7 +61,7 @@ export function CircleProgress({ value = 0.75, size = 60, color = "#00C48C" }) {
  */
 export function EnergyGauge({
   value = 0, label = "", size = 92,
-  color = "#00C48C", labelColor = "#FFD60A",
+  color = "#00C48C", labelColor = "#FFD60A", textColor = "#fff",
   ticks = 40,
 }) {
   const v = Math.max(0, Math.min(100, value));
@@ -79,11 +83,13 @@ export function EnergyGauge({
         return (
           <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
             stroke={active ? color : "#4A557855"}
-            strokeWidth={2.2} strokeLinecap="round" />
+            strokeWidth={2.2} strokeLinecap="round"
+            className="an-tick"
+            style={{ animationDelay: `${i * 0.014}s` }} />
         );
       })}
       <text x={cx} y={label ? cy - 2 : cy + 6} textAnchor="middle"
-        fill="#fff" fontSize={20} fontWeight={800}
+        fill={textColor} fontSize={20} fontWeight={800}
         dominantBaseline="middle">{v}</text>
       {label && (
         <text x={cx} y={cy + 14} textAnchor="middle"
@@ -163,20 +169,23 @@ export function AxisLineChart({ data, days, color = "#00C48C", yTicks, ySuffix =
         return (
           <g key={t}>
             <line x1={padL} y1={y} x2={padL + innerW} y2={y}
-              stroke="#FFFFFF14" strokeWidth={0.6} />
+              stroke="rgba(136,146,176,0.18)" strokeWidth={0.6} />
             <text x={padL - 6} y={y + 3} textAnchor="end"
               fill="#8892B0" fontSize={9}>{t}{ySuffix}</text>
           </g>
         );
       })}
       {fill && areaPath && (
-        <path d={areaPath} fill={`url(#${gradId})`} />
+        <path className="an-area" d={areaPath} fill={`url(#${gradId})`} />
       )}
-      <polyline points={points.map(p => `${p.x},${p.y}`).join(" ")}
+      <polyline className="an-line" pathLength={1}
+        points={points.map(p => `${p.x},${p.y}`).join(" ")}
         fill="none" stroke={color} strokeWidth={2.5}
         strokeLinejoin="round" strokeLinecap="round" />
       {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={3} fill={color} />
+        <circle key={i} cx={p.x} cy={p.y} r={3} fill={color}
+          className="an-dot"
+          style={{ animationDelay: `${0.55 + i * 0.07}s` }} />
       ))}
       {days.map((d, i) => {
         const x = padL + (days.length > 1 ? (i / (days.length - 1)) : 0.5) * innerW;
@@ -203,7 +212,7 @@ export function AxisBarChart({ data, days, color = "#00C48C", yTicks, ySuffix = 
         return (
           <g key={t}>
             <line x1={padL} y1={y} x2={padL + innerW} y2={y}
-              stroke="#FFFFFF14" strokeWidth={0.6} />
+              stroke="rgba(136,146,176,0.18)" strokeWidth={0.6} />
             <text x={padL - 6} y={y + 3} textAnchor="end"
               fill="#8892B0" fontSize={9}>{t}{ySuffix}</text>
           </g>
@@ -214,7 +223,8 @@ export function AxisBarChart({ data, days, color = "#00C48C", yTicks, ySuffix = 
         const barH = (v / maxY) * innerH;
         return (
           <rect key={i} x={cx - barW / 2} y={padT + innerH - barH}
-            width={barW} height={Math.max(barH, 0)} rx={2.5} fill={color} />
+            width={barW} height={Math.max(barH, 0)} rx={2.5} fill={color}
+            className="an-bar" style={{ animationDelay: `${i * 0.06}s` }} />
         );
       })}
       {days.map((d, i) => {
@@ -265,7 +275,7 @@ export function StackedBarChart({ series, days, yTicks, yLabel = "" }) {
         return (
           <g key={t}>
             <line x1={padL} y1={y} x2={padL + innerW} y2={y}
-              stroke="#FFFFFF14" strokeWidth={0.6} />
+              stroke="rgba(136,146,176,0.18)" strokeWidth={0.6} />
             <text x={padL - 6} y={y + 3} textAnchor="end"
               fill="#8892B0" fontSize={9}>{t}</text>
           </g>
@@ -285,7 +295,9 @@ export function StackedBarChart({ series, days, yTicks, yLabel = "" }) {
                 <rect key={s.key}
                   x={cx - barW / 2} y={y}
                   width={barW} height={segH}
-                  fill={s.color} />
+                  fill={s.color}
+                  className="an-bar"
+                  style={{ animationDelay: `${di * 0.07}s` }} />
               );
               cursorY = y;
               return rect;
@@ -353,7 +365,9 @@ export function HourlyHeatmap({
               x={leftPad + hi * (cell + gap)}
               y={topPad + di * (cell + gap)}
               width={cell} height={cell} rx={3}
-              fill={colorFor(v)} />
+              fill={colorFor(v)}
+              className="an-cell"
+              style={{ animationDelay: `${(di * 24 + hi) * 0.004}s` }} />
           ))}
         </g>
       ))}
