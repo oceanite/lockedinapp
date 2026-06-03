@@ -2,10 +2,12 @@ import { COLORS } from "../constants/theme";
 import { useStore, actions } from "../store/index";
 import { Toggle, Select, SectionLabel, PrimaryButton } from "../components/ui/index";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
+import { useViewport } from "../hooks/useViewport";
 
 export default function SettingsPage() {
   const { state, dispatch } = useStore();
   const { settings } = state;
+  const { isMobile } = useViewport();
 
   const set = (key, value) => dispatch(actions.updateSetting(key, value));
   const toggle = (key) => set(key, !settings[key]);
@@ -14,7 +16,7 @@ export default function SettingsPage() {
     <PageLayout>
       <PageHeader title="Settings" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
         <SettingsCard title="Pomodoro Settings" sectionLabel="TIMER">
           <SettingRow label="Auto Start Breaks" desc="Automatically start breaks after focus session">
             <Toggle on={settings.autoBreaks} onChange={() => toggle("autoBreaks")} />

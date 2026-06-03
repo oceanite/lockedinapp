@@ -25,6 +25,8 @@ function ThemedApp() {
       minHeight: "100vh",
       color: COLORS.text,
       display: "flex",
+      width: "100%",
+      overflowX: "hidden",
       transition: "background 0.3s ease",
     }}>
       <Sidebar />

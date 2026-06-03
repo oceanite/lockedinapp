@@ -5,12 +5,14 @@ import { Card, PrimaryButton } from "../components/ui/index";
 import { EnergyGauge } from "../components/ui/Charts";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
 import { useAnalytics } from "../hooks/useAnalytics";
+import { useViewport } from "../hooks/useViewport";
 
 const TOP_ROW_HEIGHT = 300;
 
 export default function Dashboard() {
   const { state, dispatch } = useStore();
   const { tasks } = state;
+  const { isMobile } = useViewport();
 
   const [sceneryUrl] = useState(() => {
     const n = Math.floor(Math.random() * 1000);
@@ -18,6 +20,12 @@ export default function Dashboard() {
   });
 
   const topTask = tasks.doNow[0]?.text || "No urgent tasks";
+  const twoCol = isMobile ? "1fr" : "1fr 1fr";
+  const imgHeight = isMobile ? 190 : TOP_ROW_HEIGHT;
+  const energyHeight = isMobile ? undefined : TOP_ROW_HEIGHT;
+  // bottom-row cards match the TODAY'S FOCUS card height on desktop for a
+  // symmetric 2×2; auto-size on mobile so content never gets clipped.
+  const cardHeight = isMobile ? undefined : TOP_ROW_HEIGHT;
 
   return (
     <PageLayout>
@@ -30,8 +38,8 @@ export default function Dashboard() {
         }
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <Card style={{ padding: 0, overflow: "hidden", height: TOP_ROW_HEIGHT, position: "relative" }}>
+      <div style={{ display: "grid", gridTemplateColumns: twoCol, gap: 16, marginBottom: 16 }}>
+        <Card style={{ padding: 0, overflow: "hidden", height: imgHeight, position: "relative" }}>
           <img
             src={sceneryUrl}
             alt=""
@@ -65,16 +73,17 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        <EnergyCard onLockIn={() => dispatch(actions.setPage("focus"))} height={TOP_ROW_HEIGHT} />
+        <EnergyCard onLockIn={() => dispatch(actions.setPage("focus"))} height={energyHeight} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: twoCol, gap: 16 }}>
         <UrgencyMatrixPreview
           tasks={tasks}
+          height={cardHeight}
           onAttack={() => dispatch(actions.setPage("task"))}
           onToggle={(quadrant, id) => dispatch(actions.toggleTask(quadrant, id))}
         />
-        <AnalyticsSummaryCard onTrack={() => dispatch(actions.setPage("analytics"))} />
+        <AnalyticsSummaryCard height={cardHeight} onTrack={() => dispatch(actions.setPage("analytics"))} />
       </div>
     </PageLayout>
   );
@@ -197,22 +206,27 @@ function BatteryBar({ value, segments = 28, color = COLORS.green }) {
   );
 }
 
-function UrgencyMatrixPreview({ tasks, onAttack, onToggle }) {
+function UrgencyMatrixPreview({ tasks, onAttack, onToggle, height }) {
   return (
-    <Card style={{ padding: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+    <Card style={{ padding: 18, height, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexShrink: 0 }}>
         <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 15 }}>✓ Urgency Matrix</div>
         <button onClick={onAttack} style={{
           background: COLORS.red, color: "#fff", border: "none",
           borderRadius: 8, padding: "6px 16px",
-          fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer",
+          fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
         }}>Attack Stats</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{
+        flex: 1, minHeight: 0,
+        display: "grid", gridTemplateColumns: "1fr 1fr",
+        gridAutoRows: "1fr", gap: 10,
+      }}>
         {QUADRANTS.map(q => (
           <div key={q.key} style={{
             background: `${q.color}22`, border: `1px solid ${q.color}44`,
-            borderRadius: 12, padding: 12, minHeight: 92,
+            borderRadius: 12, padding: 12, minWidth: 0, minHeight: 92,
+            overflow: "hidden",
           }}>
             <div style={{ color: q.color, fontWeight: 700, fontSize: 13, marginBottom: 8, textAlign: "center" }}>
               {q.label}
@@ -225,7 +239,7 @@ function UrgencyMatrixPreview({ tasks, onAttack, onToggle }) {
                   onClick={() => onToggle(q.key, t.id)}
                   style={{
                     display: "flex", gap: 6, alignItems: "center", marginBottom: 4,
-                    cursor: "pointer", userSelect: "none",
+                    cursor: "pointer", userSelect: "none", minWidth: 0,
                   }}
                 >
                   <div style={{
@@ -241,6 +255,7 @@ function UrgencyMatrixPreview({ tasks, onAttack, onToggle }) {
                   <span style={{
                     color: t.done ? COLORS.textMuted : COLORS.text, fontSize: 12,
                     textDecoration: t.done ? "line-through" : "none",
+                    minWidth: 0, flex: 1,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>{t.text}</span>
                 </div>
@@ -252,7 +267,7 @@ function UrgencyMatrixPreview({ tasks, onAttack, onToggle }) {
   );
 }
 
-function AnalyticsSummaryCard({ onTrack }) {
+function AnalyticsSummaryCard({ onTrack, height }) {
   const a = useAnalytics();
   const cards = [
     { icon: "⏱", label: "Total Deep Work",     value: a.totalDeepWorkLabel,          sub: "this week",            color: COLORS.purple },
@@ -261,22 +276,27 @@ function AnalyticsSummaryCard({ onTrack }) {
     { icon: "📈", label: "Peak Focus Time",    value: a.peakHourLabel,               sub: "highest productivity", color: COLORS.accent },
   ];
   return (
-    <Card style={{ padding: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+    <Card style={{ padding: 18, height, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexShrink: 0 }}>
         <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 15 }}>▦ Analytics Summary</div>
         <button onClick={onTrack} style={{
           background: COLORS.blue, color: "#fff",
           border: "none", borderRadius: 8,
-          padding: "6px 16px", fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer",
+          padding: "6px 16px", fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
         }}>Track Growth</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{
+        flex: 1, minHeight: 0,
+        display: "grid", gridTemplateColumns: "1fr 1fr",
+        gridAutoRows: "1fr", gap: 10,
+      }}>
         {cards.map(s => (
           <div key={s.label} style={{
-            position: "relative",
+            position: "relative", minWidth: 0, overflow: "hidden",
             background: `${COLORS.bg}88`,
             border: `1px solid ${COLORS.border}`,
             borderRadius: 10, padding: "10px 12px",
+            display: "flex", flexDirection: "column", justifyContent: "center",
           }}>
             <span style={{
               position: "absolute", top: 8, right: 10,

@@ -5,6 +5,7 @@ import {
   HourlyHeatmap, CircleProgress,
 } from "../components/ui/Charts";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
+import { useViewport } from "../hooks/useViewport";
 import {
   useAnalytics, DAYS, QUADRANT_STACK, fmtHour,
 } from "../hooks/useAnalytics";
@@ -22,12 +23,16 @@ function niceTicks(defaultTicks, data) {
 
 export default function AnalyticsPage() {
   const a = useAnalytics();
+  const { isMobile } = useViewport();
+
+  const kpiCols    = isMobile ? "1fr" : "1fr 1fr 1fr";
+  const bottomCols = isMobile ? "1fr" : "1fr 1fr";
 
   return (
     <PageLayout centered>
       <PageHeader title="Analytics" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: kpiCols, gap: 14, marginBottom: 14 }}>
         <KpiCard
           icon="⏱"
           label="Total Deep Work (Weekly)"
@@ -74,7 +79,7 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: bottomCols, gap: 14 }}>
         <TaskExecutionCard a={a} />
         <HeatmapCard a={a} />
       </div>

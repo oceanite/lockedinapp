@@ -4,6 +4,7 @@ import { useStore, actions } from "../store/index";
 import { formatDate } from "../utils/helpers";
 import { Card, Badge, PrimaryButton } from "../components/ui/index";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
+import { useViewport } from "../hooks/useViewport";
 
 // ── Filter options ──────────────────────────────────────────
 const STATUS_FILTERS = [
@@ -80,6 +81,7 @@ function buildStyles() {
 export default function TaskPage() {
   const { state, dispatch } = useStore();
   const { tasks } = state;
+  const { isMobile } = useViewport();
   const { inputStyle, selectStyle, addBtnStyle, fieldLabelStyle } = buildStyles();
 
   const [showAdd, setShowAdd]   = useState(false);
@@ -230,7 +232,7 @@ export default function TaskPage() {
       </div>
 
       {/* ── Quadrant grid ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         {QUADRANTS.map(q => (
           <QuadrantColumn
             key={q.key}

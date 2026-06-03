@@ -5,6 +5,7 @@ import { useTimer } from "../hooks/useTimer";
 import { Card } from "../components/ui/index";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
 import { SynthEngine, playAlarm, primeAudio } from "../utils/audio";
+import { useViewport } from "../hooks/useViewport";
 
 const MODES = [
   { id: "pomodoro", label: "Pomodoro · 25m" },
@@ -22,6 +23,7 @@ const FOCUS_TIPS = [
 
 export default function FocusRoom() {
   const { state, dispatch } = useStore();
+  const { isMobile } = useViewport();
   const [tipIndex] = useState(() => Math.floor(Math.random() * FOCUS_TIPS.length));
   // null = default (sessions + tip); "block" | "music" | "history" otherwise
   const [activePanel, setActivePanel] = useState(null);
@@ -110,7 +112,7 @@ export default function FocusRoom() {
         })}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 320px", gap: 20, alignItems: "start" }}>
         {/* TIMER CARD */}
         <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "36px 24px 28px", position: "relative" }}>
           {/* Floating icon rail — vertically centered against the dial */}

@@ -350,7 +350,8 @@ export function HourlyHeatmap({
   };
 
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+    <svg viewBox={`0 0 ${w} ${h}`}
+      style={{ display: "block", width: "100%", height: "auto", maxWidth: w }}>
       {hourLabels.map(hr => {
         const x = leftPad + hr * (cell + gap);
         return <text key={hr} x={x} y={13} textAnchor="middle"
