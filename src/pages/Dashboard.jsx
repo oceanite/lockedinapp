@@ -19,6 +19,7 @@ export default function Dashboard() {
     return `https://picsum.photos/seed/lockedin-${n}/720/360`;
   });
 
+  const userName = state.auth?.currentUser?.name || state.settings.userName || "there";
   const topTask = tasks.doNow[0]?.text || "No urgent tasks";
   const twoCol = isMobile ? "1fr" : "1fr 1fr";
   const imgHeight = isMobile ? 190 : TOP_ROW_HEIGHT;
@@ -30,7 +31,7 @@ export default function Dashboard() {
   return (
     <PageLayout>
       <PageHeader
-        title="Hello, Name!"
+        title={`Hello, ${userName}!`}
         action={
           <PrimaryButton onClick={() => dispatch(actions.setPage("task"))}>
             + Add Task
