@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { COLORS, QUADRANTS } from "../constants/theme";
-import { useStore, actions } from "../store/index";
+import { useStore, actions, liveEnergyLevel, energyLabel } from "../store/index";
 import { Card, PrimaryButton } from "../components/ui/index";
 import { EnergyGauge } from "../components/ui/Charts";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
@@ -90,8 +90,19 @@ export default function Dashboard() {
 }
 
 function EnergyCard({ onLockIn, height }) {
-  const energy   = 26;   // current energy (gauge value)
-  const progress = 68;   // today's progress toward goal (battery bar)
+  const { state } = useStore();
+
+  // Re-render periodically so idle recovery shows live (recovery is slow,
+  // ~0.67%/min, so a 10s tick is plenty).
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  const energy = liveEnergyLevel(state.energy);          // single source of truth
+  const tone = energy < 34 ? COLORS.red : energy < 67 ? COLORS.orange : COLORS.green;
+
   const stats = [
     { label: "Daily Target",      value: "2 / 5", color: COLORS.orange },
     { label: "Current Streak",    value: "7",     color: COLORS.green  },
@@ -127,12 +138,12 @@ function EnergyCard({ onLockIn, height }) {
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div className="lamp-blink" style={{
               width: 8, height: 8, borderRadius: "50%",
-              background: COLORS.green, color: COLORS.green,
+              background: tone, color: tone,
             }} />
-            <span style={{ color: COLORS.text, fontSize: 13, fontWeight: 700 }}>Today's Progress</span>
+            <span style={{ color: COLORS.text, fontSize: 13, fontWeight: 700 }}>Energy Level</span>
           </div>
           <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2, marginBottom: 10 }}>
-            Last updated at 7:30 PM
+            Drains in focus · recovers when resting
           </div>
 
           <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
@@ -142,21 +153,22 @@ function EnergyCard({ onLockIn, height }) {
           </div>
         </div>
 
-        <EnergyGauge value={energy} label="Low" size={86} textColor={COLORS.text} />
+        <EnergyGauge value={energy} label={energyLabel(energy)} size={86}
+          color={tone} labelColor={tone} textColor={COLORS.text} />
       </div>
 
-      {/* battery bar inner panel */}
+      {/* battery bar inner panel — same energy value, in sync with the gauge */}
       <div style={{
         background: `${COLORS.bg}aa`, border: `1px solid ${COLORS.border}`,
         borderRadius: 12, padding: "8px 12px",
         display: "flex", alignItems: "center", gap: 10,
       }}>
-        <span className="bolt-flicker" style={{ color: COLORS.green, fontSize: 14 }}>⚡</span>
-        <BatteryBar value={progress} />
+        <span className="bolt-flicker" style={{ color: tone, fontSize: 14 }}>⚡</span>
+        <BatteryBar value={energy} color={tone} />
         <span style={{
           color: COLORS.text, fontSize: 12, fontWeight: 700,
           minWidth: 36, textAlign: "right",
-        }}>{progress}%</span>
+        }}>{energy}%</span>
       </div>
     </Card>
   );

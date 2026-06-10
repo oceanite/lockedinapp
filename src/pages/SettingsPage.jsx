@@ -1,4 +1,4 @@
-import { COLORS } from "../constants/theme";
+import { COLORS, THEME_META } from "../constants/theme";
 import { useStore, actions } from "../store/index";
 import { Toggle, Select, SectionLabel, PrimaryButton } from "../components/ui/index";
 import { PageLayout, PageHeader } from "../components/layout/PageLayout";
@@ -14,7 +14,20 @@ export default function SettingsPage() {
 
   return (
     <PageLayout>
-      <PageHeader title="Settings" />
+      <PageHeader
+        title="Settings"
+        action={
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: `${COLORS.yellow}14`, border: `1px solid ${COLORS.yellow}44`,
+            borderRadius: 999, padding: "6px 14px",
+          }}>
+            <span style={{ fontSize: 15 }}>⭐</span>
+            <span style={{ color: COLORS.yellow, fontWeight: 800, fontSize: 14 }}>{state.points}</span>
+            <span style={{ color: COLORS.textMuted, fontSize: 12 }}>points</span>
+          </div>
+        }
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
         <SettingsCard title="Pomodoro Settings" sectionLabel="TIMER">
@@ -59,19 +72,17 @@ export default function SettingsPage() {
             </SettingRow>
           </SettingsCard>
 
-          <SettingsCard title="Theme Engine" sectionLabel="APPEARANCE">
-            <SettingRow label="Color Theme" desc="3 dark · 3 light" last>
-              <Select value={settings.theme} onChange={v => set("theme", v)}
-                options={[
-                  { value: "dark",     label: "Dark (Default)" },
-                  { value: "midnight", label: "Midnight" },
-                  { value: "ocean",    label: "Ocean" },
-                  { value: "daylight", label: "Daylight" },
-                  { value: "sand",     label: "Sand" },
-                  { value: "rose",     label: "Rose" },
-                ]}
-              />
-            </SettingRow>
+          <SettingsCard title="Theme Store" sectionLabel="APPEARANCE">
+            <div style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>
+              Earn points by completing focus sessions, then redeem them to unlock new themes.
+            </div>
+            <ThemeStore
+              current={settings.theme}
+              unlocked={state.unlockedThemes}
+              points={state.points}
+              onApply={(id) => set("theme", id)}
+              onUnlock={(id, cost) => dispatch(actions.unlockTheme(id, cost))}
+            />
           </SettingsCard>
 
           <SettingsCard title="Profile" sectionLabel="ACCOUNT">
@@ -83,13 +94,82 @@ export default function SettingsPage() {
               <FieldLabel>Email</FieldLabel>
               <TextInput value={settings.userEmail} onChange={v => set("userEmail", v)} />
             </div>
-            <PrimaryButton style={{ fontSize: 12, padding: "7px 18px", borderRadius: 8 }}>
-              Save Changes
-            </PrimaryButton>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <PrimaryButton style={{ fontSize: 12, padding: "7px 18px", borderRadius: 8 }}>
+                Save Changes
+              </PrimaryButton>
+              <button
+                onClick={() => dispatch(actions.logout())}
+                style={{
+                  fontSize: 12, padding: "7px 18px", borderRadius: 8,
+                  background: "transparent", color: COLORS.red,
+                  border: `1px solid ${COLORS.red}66`, cursor: "pointer",
+                  fontFamily: "inherit", fontWeight: 700,
+                }}
+              >Log Out</button>
+            </div>
           </SettingsCard>
         </div>
       </div>
     </PageLayout>
+  );
+}
+
+function ThemeStore({ current, unlocked, points, onApply, onUnlock }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      {THEME_META.map(t => {
+        const isUnlocked = unlocked.includes(t.id);
+        const isActive   = current === t.id;
+        const canAfford  = points >= t.cost;
+
+        return (
+          <div key={t.id} style={{
+            border: `1px solid ${isActive ? COLORS.blue : COLORS.border}`,
+            background: isActive ? `${COLORS.blue}1a` : COLORS.bg,
+            borderRadius: 10, padding: "10px 10px 8px",
+            display: "flex", flexDirection: "column", gap: 6,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16 }}>{t.emoji}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 700, lineHeight: 1.1 }}>{t.label}</div>
+                <div style={{ color: COLORS.textMuted, fontSize: 9 }}>{t.mode} mode</div>
+              </div>
+            </div>
+
+            {isUnlocked ? (
+              <button
+                onClick={() => onApply(t.id)}
+                disabled={isActive}
+                style={{
+                  width: "100%", borderRadius: 8, padding: "6px 0",
+                  fontFamily: "inherit", fontWeight: 700, fontSize: 11,
+                  cursor: isActive ? "default" : "pointer",
+                  border: "none",
+                  background: isActive ? COLORS.green : COLORS.blue,
+                  color: "#fff",
+                }}
+              >{isActive ? "✓ Active" : "Apply"}</button>
+            ) : (
+              <button
+                onClick={() => canAfford && onUnlock(t.id, t.cost)}
+                disabled={!canAfford}
+                title={canAfford ? `Unlock for ${t.cost} points` : "Not enough points"}
+                style={{
+                  width: "100%", borderRadius: 8, padding: "6px 0",
+                  fontFamily: "inherit", fontWeight: 700, fontSize: 11,
+                  cursor: canAfford ? "pointer" : "not-allowed",
+                  border: `1px solid ${canAfford ? `${COLORS.yellow}66` : COLORS.border}`,
+                  background: canAfford ? `${COLORS.yellow}1a` : "transparent",
+                  color: canAfford ? COLORS.yellow : COLORS.textMuted,
+                }}
+              >🔒 {t.cost} pts</button>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

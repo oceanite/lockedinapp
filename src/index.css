@@ -43,6 +43,13 @@ input, select, button, textarea {
 .an-tick { animation: chartFade 0.4s ease both; }
 .an-ring { animation: dashSweep 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ── Custom-duration attention glow ────────────────────────── */
+@keyframes durationGlow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 5px var(--glow); }
+}
+.duration-glow { animation: durationGlow 1.5s ease-in-out infinite; }
+
 /* ── Energy Tracker "blinking lamp" ────────────────────────── */
 @keyframes lampBlink {
   0%, 100% { opacity: 1;   box-shadow: 0 0 8px 1px currentColor; }
@@ -62,7 +69,7 @@ input, select, button, textarea {
 @media (prefers-reduced-motion: reduce) {
   .page-transition,
   .an-line, .an-area, .an-dot, .an-bar, .an-cell, .an-tick, .an-ring,
-  .lamp-blink, .bolt-flicker { animation: none; }
+  .lamp-blink, .bolt-flicker, .duration-glow { animation: none; }
   .an-line { stroke-dashoffset: 0; }
 }
 

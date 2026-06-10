@@ -73,14 +73,14 @@ const DAYLIGHT = {
   bg:        "#F2F5FB",
   sidebar:   "#FFFFFF",
   card:      "#FFFFFF",
-  border:    "#E2E8F2",
-  blue:      "#3B5BFF",
+  border:    "#DCE3EF",
+  blue:      "#2F4FE0",
   blueMid:   "#2A46E8",
-  accent:    "#0091B0",
-  purple:    "#7C3AED",
-  text:      "#1A2238",
-  textSec:   "#5A6785",
-  textMuted: "#94A0BC",
+  accent:    "#0379A6",
+  purple:    "#6D28D9",
+  text:      "#141A2E",
+  textSec:   "#4A5775",
+  textMuted: "#7785A1",
   heatEmpty: "#E5EAF3",
   ...STATUS,
 };
@@ -89,14 +89,14 @@ const SAND = {
   bg:        "#F7F2E9",
   sidebar:   "#FFFDF8",
   card:      "#FFFDF8",
-  border:    "#E9DFCC",
-  blue:      "#D97706",   // warm amber primary
-  blueMid:   "#B45309",
+  border:    "#E6DAC2",
+  blue:      "#C2620A",   // warm amber primary
+  blueMid:   "#9A4E08",
   accent:    "#0E7490",
-  purple:    "#9D5C0D",
-  text:      "#2E2A22",
-  textSec:   "#6E6253",
-  textMuted: "#A89A84",
+  purple:    "#8A4D0B",
+  text:      "#26221A",
+  textSec:   "#5C5142",
+  textMuted: "#8C7E66",
   heatEmpty: "#ECE3D3",
   ...STATUS,
 };
@@ -105,14 +105,14 @@ const ROSE = {
   bg:        "#FBF3F8",
   sidebar:   "#FFFAFD",
   card:      "#FFFAFD",
-  border:    "#F0DEEA",
-  blue:      "#DB2777",   // pink primary
-  blueMid:   "#BE185D",
-  accent:    "#7C3AED",
-  purple:    "#9333EA",
-  text:      "#2A1E2A",
-  textSec:   "#6E5A6A",
-  textMuted: "#A892A2",
+  border:    "#EFD8E8",
+  blue:      "#C81E6B",   // pink primary
+  blueMid:   "#A3155A",
+  accent:    "#6D28D9",
+  purple:    "#7E22CE",
+  text:      "#241624",
+  textSec:   "#5E4A5A",
+  textMuted: "#8A718A",
   heatEmpty: "#F2E3EE",
   ...STATUS,
 };
@@ -121,6 +121,17 @@ export const THEMES = {
   dark: DARK, midnight: MIDNIGHT, ocean: OCEAN,
   daylight: DAYLIGHT, sand: SAND, rose: ROSE,
 };
+
+// Theme catalog for the redeem-with-points store in Settings.
+// `dark` is free & owned by default; the rest cost points earned from sessions.
+export const THEME_META = [
+  { id: "dark",     label: "Dark",     emoji: "🌑", mode: "Dark",  cost: 0   },
+  { id: "midnight", label: "Midnight", emoji: "🌌", mode: "Dark",  cost: 50  },
+  { id: "ocean",    label: "Ocean",    emoji: "🌊", mode: "Dark",  cost: 80  },
+  { id: "daylight", label: "Daylight", emoji: "☀️", mode: "Light", cost: 120 },
+  { id: "sand",     label: "Sand",     emoji: "🏜️", mode: "Light", cost: 150 },
+  { id: "rose",     label: "Rose",     emoji: "🌸", mode: "Light", cost: 200 },
+];
 
 // Live palette (starts as dark; mutated by applyTheme).
 export const COLORS = { ...DARK };

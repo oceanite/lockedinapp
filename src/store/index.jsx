@@ -6,7 +6,11 @@ import {
 
 // Bump this whenever data.js seed contents change — forces an in-place
 // re-seed on next load so prototype demos stay consistent.
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
+
+// Built-in account for quick testing (username/email "admin", password "admin").
+const ADMIN_USER = { name: "Admin", email: "admin", password: "admin" };
+const DEFAULT_POINTS = 200; // starting balance for trials
 
 // ─────────────────────────────────────────────────────────────
 // STORAGE KEYS
@@ -21,7 +25,35 @@ const KEYS = {
   timerHistory: "lockedin:timerHistory",
   musicState:   "lockedin:musicState",
   seedVersion:  "lockedin:seedVersion",
+  auth:         "lockedin:auth",          // { currentUser, users }
+  points:       "lockedin:points",
+  unlockedThemes: "lockedin:unlockedThemes",
+  energy:       "lockedin:energy",        // { level, ts }
 };
+
+// Energy model: recovers during regular time, drains during focus sessions.
+const ENERGY_RECOVER_PER_MIN = 10 / 15; // +10% every 15 min idle
+const ENERGY_DRAIN_PER_MIN   = 1 / 2;   // −1%  every 2 min focused
+
+/** Bank recovery accrued since the last checkpoint (capped at 100). */
+function settleEnergy(energy) {
+  const now = Date.now();
+  const elapsedMin = Math.max(0, (now - energy.ts) / 60000);
+  const level = Math.min(100, energy.level + elapsedMin * ENERGY_RECOVER_PER_MIN);
+  return { level, ts: now };
+}
+
+/** Live energy level for display = stored level + recovery since checkpoint. */
+export function liveEnergyLevel(energy) {
+  if (!energy) return 100;
+  return Math.round(settleEnergy(energy).level);
+}
+
+export function energyLabel(level) {
+  if (level < 34) return "Low";
+  if (level < 67) return "Mid";
+  return "High";
+}
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS
@@ -76,12 +108,21 @@ function runSeedIfNeeded() {
     h.completedAt.slice(0, 10) === today
   ).length;
 
-  save(KEYS.tasks,        INITIAL_TASKS);
-  save(KEYS.blockedSites, INITIAL_BLOCKED_SITES);
-  save(KEYS.timerHistory, history);
-  save(KEYS.sessions,     sessionsToday);
-  save(KEYS.date,         today);
-  save(KEYS.seedVersion,  SEED_VERSION);
+  save(KEYS.tasks,          INITIAL_TASKS);
+  save(KEYS.blockedSites,   INITIAL_BLOCKED_SITES);
+  save(KEYS.timerHistory,   history);
+  save(KEYS.sessions,       sessionsToday);
+  save(KEYS.date,           today);
+  save(KEYS.points,         DEFAULT_POINTS);
+  save(KEYS.unlockedThemes, ["dark"]);
+  save(KEYS.seedVersion,    SEED_VERSION);
+}
+
+/** Ensure the built-in admin account always exists. */
+function ensureAdmin(auth) {
+  const exists = auth.users.some(u => (u.email || "").toLowerCase() === ADMIN_USER.email);
+  if (exists) return auth;
+  return { ...auth, users: [...auth.users, ADMIN_USER] };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -102,6 +143,11 @@ function buildInitialState() {
       volume:     0.6,
       loop:       true,
     }),
+    // auth: prototype-only, stored in localStorage (no real backend/hashing)
+    auth:           ensureAdmin(load(KEYS.auth, { currentUser: null, users: [] })),
+    points:         load(KEYS.points, DEFAULT_POINTS),
+    unlockedThemes: load(KEYS.unlockedThemes, ["dark"]),
+    energy:         load(KEYS.energy, { level: 75, ts: Date.now() }),
   };
 }
 
@@ -192,6 +238,59 @@ function reducer(state, action) {
         musicState: { ...state.musicState, ...action.payload },
       };
 
+    // ── Auth ──────────────────────────────────────────────────
+    case "REGISTER": {
+      const { name, email, password } = action.payload;
+      const user = { name, email, password };
+      return {
+        ...state,
+        auth: {
+          currentUser: { name, email },
+          users: [...state.auth.users, user],
+        },
+        settings: { ...state.settings, userName: name, userEmail: email },
+      };
+    }
+
+    case "LOGIN": {
+      const { name, email } = action.payload; // validated in component
+      return {
+        ...state,
+        auth: { ...state.auth, currentUser: { name, email } },
+        settings: { ...state.settings, userName: name, userEmail: email },
+      };
+    }
+
+    case "LOGOUT":
+      return { ...state, auth: { ...state.auth, currentUser: null } };
+
+    // ── Points & theme unlocks ────────────────────────────────
+    case "ADD_POINTS":
+      return { ...state, points: state.points + action.payload };
+
+    case "UNLOCK_THEME": {
+      const { theme, cost } = action.payload;
+      if (state.unlockedThemes.includes(theme)) return state;
+      if (state.points < cost) return state;
+      return {
+        ...state,
+        points: state.points - cost,
+        unlockedThemes: [...state.unlockedThemes, theme],
+      };
+    }
+
+    // ── Energy ────────────────────────────────────────────────
+    // Checkpoint accrued recovery (call when a focus session starts).
+    case "SETTLE_ENERGY":
+      return { ...state, energy: settleEnergy(state.energy) };
+
+    // Drain after a completed focus session (no recovery for that period).
+    case "DRAIN_ENERGY": {
+      const minutes = action.payload;
+      const level = Math.max(0, state.energy.level - minutes * ENERGY_DRAIN_PER_MIN);
+      return { ...state, energy: { level, ts: Date.now() } };
+    }
+
     default:
       return state;
   }
@@ -214,6 +313,10 @@ export function StoreProvider({ children }) {
   useEffect(() => { save(KEYS.blockedSites, state.blockedSites); }, [state.blockedSites]);
   useEffect(() => { save(KEYS.timerHistory, state.timerHistory); }, [state.timerHistory]);
   useEffect(() => { save(KEYS.musicState,   state.musicState);   }, [state.musicState]);
+  useEffect(() => { save(KEYS.auth,           state.auth);           }, [state.auth]);
+  useEffect(() => { save(KEYS.points,         state.points);         }, [state.points]);
+  useEffect(() => { save(KEYS.unlockedThemes, state.unlockedThemes); }, [state.unlockedThemes]);
+  useEffect(() => { save(KEYS.energy,         state.energy);         }, [state.energy]);
 
   return (
     <StoreContext.Provider value={{ state, dispatch }}>
@@ -245,4 +348,11 @@ export const actions = {
   addTimerHistory:     (entry)          => ({ type: "ADD_TIMER_HISTORY",    payload: entry }),
   clearTimerHistory:   ()               => ({ type: "CLEAR_TIMER_HISTORY"   }),
   updateMusicState:    (patch)          => ({ type: "UPDATE_MUSIC_STATE",   payload: patch }),
+  register:            (user)           => ({ type: "REGISTER",             payload: user }),
+  login:               (user)           => ({ type: "LOGIN",                payload: user }),
+  logout:              ()               => ({ type: "LOGOUT"                 }),
+  addPoints:           (amount)         => ({ type: "ADD_POINTS",            payload: amount }),
+  unlockTheme:         (theme, cost)    => ({ type: "UNLOCK_THEME",          payload: { theme, cost } }),
+  settleEnergy:        ()               => ({ type: "SETTLE_ENERGY"           }),
+  drainEnergy:         (minutes)        => ({ type: "DRAIN_ENERGY",           payload: minutes }),
 };

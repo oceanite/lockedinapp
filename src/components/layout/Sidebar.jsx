@@ -72,7 +72,23 @@ export function Sidebar() {
   );
 
   const profile = (
-    <div style={{ padding: "16px 20px", borderTop: `1px solid ${COLORS.border}` }}>
+    <div style={{ padding: "12px 20px 16px", borderTop: `1px solid ${COLORS.border}` }}>
+      {/* points balance */}
+      <button
+        onClick={() => go("settings")}
+        title="Redeem points for themes in Settings"
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 8,
+          background: `${COLORS.yellow}14`, border: `1px solid ${COLORS.yellow}44`,
+          borderRadius: 10, padding: "7px 10px", marginBottom: 10,
+          cursor: "pointer", fontFamily: "inherit",
+        }}
+      >
+        <span style={{ fontSize: 14 }}>⭐</span>
+        <span style={{ color: COLORS.yellow, fontWeight: 800, fontSize: 14 }}>{state.points}</span>
+        <span style={{ color: COLORS.textMuted, fontSize: 11 }}>points</span>
+      </button>
+
       <button
         onClick={() => go("settings")}
         title="Open account settings"

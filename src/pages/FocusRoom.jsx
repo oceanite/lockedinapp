@@ -7,12 +7,17 @@ import { PageLayout, PageHeader } from "../components/layout/PageLayout";
 import { SynthEngine, playAlarm, primeAudio } from "../utils/audio";
 import { useViewport } from "../hooks/useViewport";
 
-const MODES = [
-  { id: "pomodoro", label: "Pomodoro · 25m" },
-  { id: "short",    label: "Short Break · 5m" },
-  { id: "long",     label: "Long Break · 15m" },
-  { id: "custom",   label: "Custom" },
+// timed presets shown in the mode bar (labels are built from settings)
+const PRESET_MODES = [
+  { id: "pomodoro", name: "Pomodoro",    setting: "focusDuration", fallback: 25 },
+  { id: "short",    name: "Short Break", setting: "shortBreak",    fallback: 5  },
+  { id: "long",     name: "Long Break",  setting: "longBreak",     fallback: 15 },
 ];
+
+function toMin(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 const FOCUS_TIPS = [
   "Work in 25-minute sprints then take a 5-minute break. After 4 sessions, take a longer 15-minute break.",
@@ -25,21 +30,51 @@ export default function FocusRoom() {
   const { state, dispatch } = useStore();
   const { isMobile } = useViewport();
   const [tipIndex] = useState(() => Math.floor(Math.random() * FOCUS_TIPS.length));
-  // null = default (sessions + tip); "block" | "music" | "history" otherwise
-  const [activePanel, setActivePanel] = useState(null);
+  // which side-panel tab is open: "session" | "block" | "music" | "history"
+  const [activePanel, setActivePanel] = useState("session");
   // session-complete popup payload ({ label, durationSecs }) or null
   const [completed, setCompleted] = useState(null);
+  const customInputRef = useRef(null);
 
   const soundOn = state.settings?.sound !== false;
 
+  // Focus Room presets follow the durations set in Settings.
+  const settings = state.settings;
+  const presetMins = {
+    pomodoro: toMin(settings.focusDuration, 25),
+    short:    toMin(settings.shortBreak, 5),
+    long:     toMin(settings.longBreak, 15),
+  };
+  const presets = useMemo(() => ({
+    pomodoro: presetMins.pomodoro * 60,
+    short:    presetMins.short * 60,
+    long:     presetMins.long * 60,
+  }), [presetMins.pomodoro, presetMins.short, presetMins.long]);
+
+  // jump into custom mode and focus the minute field
+  const startCustom = () => {
+    timer.switchMode("custom");
+    setTimeout(() => customInputRef.current?.focus(), 0);
+  };
+
   const timer = useTimer({
+    presets,
     onComplete: () => {
+      // Reward: base 10 + 1 point per focused minute. Breaks earn the base only.
+      const mins = Math.round(timer.totalSecs / 60);
+      const isBreak = timer.mode === "short" || timer.mode === "long";
+      const earned = isBreak ? 5 : 10 + mins;
+
       const finished = {
         label: labelForMode(timer.mode, timer.customMin),
         durationSecs: timer.totalSecs,
         mode: timer.mode,
+        earned,
       };
       dispatch(actions.incrementSessions());
+      dispatch(actions.addPoints(earned));
+      // focus sessions drain energy (−1% per 2 min); breaks don't
+      if (!isBreak) dispatch(actions.drainEnergy(mins));
       dispatch(actions.addTimerHistory({
         id: Date.now(),
         mode: timer.mode,
@@ -59,9 +94,6 @@ export default function FocusRoom() {
   const circumference = 2 * Math.PI * 110;
   const dashOffset = circumference - (timer.progress / 100) * circumference;
 
-  const togglePanel = (key) =>
-    setActivePanel(prev => (prev === key ? null : key));
-
   const activeBlockedCount = state.blockedSites.filter(s => s.active).length;
 
   return (
@@ -79,20 +111,20 @@ export default function FocusRoom() {
 
       {/* MODE BAR — presets, then Custom with quick-pick shortcuts beside it */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-        {MODES.slice(0, 3).map(m => (
+        {PRESET_MODES.map(m => (
           <ModeButton key={m.id}
             active={timer.mode === m.id}
             onClick={() => timer.switchMode(m.id)}>
-            {m.label}
+            {m.name} · {presetMins[m.id]}m
           </ModeButton>
         ))}
         <span style={{
           width: 1, height: 22, background: COLORS.border, margin: "0 4px",
         }} />
         <ModeButton
-          active={timer.mode === "custom" && !QUICK_PICKS.includes(timer.customMin)}
-          onClick={() => timer.switchMode("custom")}>
-          Custom
+          active={timer.mode === "custom"}
+          onClick={startCustom}>
+          ✎ Custom
         </ModeButton>
         {QUICK_PICKS.map(min => {
           const isActive = timer.mode === "custom" && timer.customMin === min;
@@ -115,36 +147,6 @@ export default function FocusRoom() {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 320px", gap: 20, alignItems: "start" }}>
         {/* TIMER CARD */}
         <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "36px 24px 28px", position: "relative" }}>
-          {/* Floating icon rail — vertically centered against the dial */}
-          <div style={{
-            position: "absolute", top: 94, right: 20,
-            display: "flex", flexDirection: "column", gap: 12,
-          }}>
-            <IconButton
-              active={activePanel === "block"}
-              badge={activeBlockedCount}
-              title="Website blocker"
-              onClick={() => togglePanel("block")}
-            >
-              <BlockGlyph />
-            </IconButton>
-            <IconButton
-              active={activePanel === "music"}
-              dot={!!state.musicState.selectedId}
-              title="Choose music"
-              onClick={() => togglePanel("music")}
-            >
-              <HeadphonesGlyph />
-            </IconButton>
-            <IconButton
-              active={activePanel === "history"}
-              title="Timer history"
-              onClick={() => togglePanel("history")}
-            >
-              <HistoryGlyph />
-            </IconButton>
-          </div>
-
           <div style={{ position: "relative", marginBottom: 32 }}>
             <svg width={260} height={260}>
               <circle cx={130} cy={130} r={110} fill="none"
@@ -177,19 +179,25 @@ export default function FocusRoom() {
 
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             {timer.mode === "custom" && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-                borderRadius: 12, padding: "6px 10px",
-              }}>
+              <div
+                className={!timer.running ? "duration-glow" : undefined}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: COLORS.bg,
+                  border: `1px solid ${timer.running ? COLORS.border : COLORS.blue}`,
+                  borderRadius: 12, padding: "6px 10px",
+                  "--glow": `${COLORS.blue}55`,
+                }}>
+                <span style={{ color: COLORS.textMuted, fontSize: 11, fontWeight: 600 }}>Set</span>
                 <input
+                  ref={customInputRef}
                   type="number" min={1} max={180}
                   value={timer.customMin}
                   onChange={e => timer.setCustomDuration(+e.target.value)}
                   style={{
                     width: 44, background: "transparent", border: "none",
                     color: COLORS.text, fontFamily: "inherit",
-                    fontSize: 14, fontWeight: 700, textAlign: "right",
+                    fontSize: 16, fontWeight: 800, textAlign: "center",
                     outline: "none",
                   }}
                 />
@@ -201,7 +209,8 @@ export default function FocusRoom() {
               primeAudio();
               const wasRunning = timer.running;
               if (!wasRunning && timer.seconds === timer.totalSecs) {
-                // log a "started" entry only when fresh start
+                // fresh start: bank recovery up to now, then log "started"
+                dispatch(actions.settleEnergy());
                 dispatch(actions.addTimerHistory({
                   id: Date.now(),
                   mode: timer.mode,
@@ -250,17 +259,23 @@ export default function FocusRoom() {
           )}
         </Card>
 
-        {/* RIGHT-COLUMN: swaps based on active panel */}
+        {/* RIGHT-COLUMN: labeled tabs + the active panel */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {activePanel === "block"   && <WebsiteBlockerPanel onClose={() => setActivePanel(null)} />}
-          {activePanel === "music"   && <MusicPanel onClose={() => setActivePanel(null)} />}
-          {activePanel === "history" && <HistoryPanel onClose={() => setActivePanel(null)} />}
-          {activePanel === null && (
+          <PanelTabs
+            active={activePanel}
+            onChange={setActivePanel}
+            blockedCount={activeBlockedCount}
+            musicOn={!!state.musicState.selectedId}
+          />
+          {activePanel === "session" && (
             <>
-              <SessionLog sessions={state.sessions} />
+              <SessionLog sessions={state.sessions} history={state.timerHistory} />
               <TipCard tip={FOCUS_TIPS[tipIndex]} />
             </>
           )}
+          {activePanel === "block"   && <WebsiteBlockerPanel />}
+          {activePanel === "music"   && <MusicPanel />}
+          {activePanel === "history" && <HistoryPanel />}
         </div>
       </div>
 
@@ -272,6 +287,7 @@ export default function FocusRoom() {
         <CompletionModal
           info={completed}
           sessions={state.sessions}
+          totalPoints={state.points}
           onClose={() => setCompleted(null)}
           onRestart={() => {
             setCompleted(null);
@@ -302,7 +318,7 @@ function fireBrowserNotification(info, settings) {
   }
 }
 
-function CompletionModal({ info, sessions, onClose, onRestart }) {
+function CompletionModal({ info, sessions, totalPoints, onClose, onRestart }) {
   const mins = Math.round(info.durationSecs / 60);
   // close on Escape
   useEffect(() => {
@@ -338,10 +354,21 @@ function CompletionModal({ info, sessions, onClose, onRestart }) {
         <div style={{ color: COLORS.text, fontSize: 20, fontWeight: 800, marginBottom: 6 }}>
           Session Complete!
         </div>
-        <div style={{ color: COLORS.textSec, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+        <div style={{ color: COLORS.textSec, fontSize: 13, marginBottom: 14, lineHeight: 1.5 }}>
           You finished <strong style={{ color: COLORS.text }}>{info.label}</strong> ·{" "}
           <strong style={{ color: COLORS.text }}>{mins} min</strong>.<br />
           That's <strong style={{ color: COLORS.green }}>{sessions}</strong> session{sessions === 1 ? "" : "s"} today. Nice work!
+        </div>
+
+        {/* points reward */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          background: `${COLORS.yellow}14`, border: `1px solid ${COLORS.yellow}44`,
+          borderRadius: 12, padding: "10px 12px", marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 18 }}>⭐</span>
+          <span style={{ color: COLORS.yellow, fontWeight: 800, fontSize: 16 }}>+{info.earned} points</span>
+          <span style={{ color: COLORS.textMuted, fontSize: 12 }}>· total {totalPoints}</span>
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -366,12 +393,24 @@ function CompletionModal({ info, sessions, onClose, onRestart }) {
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
-function labelForMode(mode, customMin) {
+function labelForMode(mode) {
   if (mode === "pomodoro") return "Pomodoro";
   if (mode === "short")    return "Short Break";
   if (mode === "long")     return "Long Break";
-  if (mode === "custom")   return `Custom · ${customMin}m`;
+  if (mode === "custom")   return "Custom";
   return mode;
+}
+
+// Display name for a stored history entry, derived from its mode so the
+// duration (shown separately) is never duplicated — works for old entries too.
+function cleanLabel(h) {
+  switch (h.mode) {
+    case "pomodoro": return "Pomodoro";
+    case "short":    return "Short Break";
+    case "long":     return "Long Break";
+    case "custom":   return "Custom";
+    default:         return h.label || h.mode || "Session";
+  }
 }
 
 function nowPlayingLabel(id) {
@@ -416,41 +455,6 @@ function ModeButton({ active, onClick, children }) {
   );
 }
 
-function IconButton({ children, active, badge, dot, onClick, title }) {
-  return (
-    <button onClick={onClick} title={title} style={{
-      width: 40, height: 40, borderRadius: "50%",
-      background: active ? COLORS.blue : `${COLORS.bg}cc`,
-      border: `1px solid ${active ? COLORS.blue : COLORS.border}`,
-      color: active ? "#fff" : COLORS.textSec,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      cursor: "pointer", position: "relative",
-      transition: "background 0.18s, color 0.18s",
-    }}>
-      {children}
-      {badge > 0 && (
-        <span style={{
-          position: "absolute", top: -4, right: -4,
-          background: COLORS.red, color: "#fff",
-          fontSize: 9, fontWeight: 800,
-          minWidth: 16, height: 16, borderRadius: 8,
-          padding: "0 4px",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          border: `2px solid ${COLORS.card}`,
-        }}>{badge}</span>
-      )}
-      {dot && !badge && (
-        <span style={{
-          position: "absolute", top: 2, right: 2,
-          width: 8, height: 8, borderRadius: "50%",
-          background: COLORS.green,
-          border: `2px solid ${COLORS.card}`,
-        }} />
-      )}
-    </button>
-  );
-}
-
 function StatusChip({ children, color }) {
   return (
     <span style={{
@@ -466,12 +470,66 @@ function PanelHeader({ title, onClose }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
       <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 14 }}>{title}</div>
-      <button onClick={onClose} style={{
-        width: 24, height: 24, borderRadius: 6,
-        background: "transparent", color: COLORS.textSec,
-        border: `1px solid ${COLORS.border}`,
-        cursor: "pointer", fontSize: 12, lineHeight: 1,
-      }}>×</button>
+      {onClose && (
+        <button onClick={onClose} style={{
+          width: 24, height: 24, borderRadius: 6,
+          background: "transparent", color: COLORS.textSec,
+          border: `1px solid ${COLORS.border}`,
+          cursor: "pointer", fontSize: 12, lineHeight: 1,
+        }}>×</button>
+      )}
+    </div>
+  );
+}
+
+// Labeled tab bar for the side panel — clearly navigational (not on/off toggles).
+function PanelTabs({ active, onChange, blockedCount, musicOn }) {
+  const tabs = [
+    { id: "session", label: "Session", glyph: <SessionGlyph /> },
+    { id: "block",   label: "Blocker", glyph: <BlockGlyph />,       badge: blockedCount },
+    { id: "music",   label: "Music",   glyph: <HeadphonesGlyph />,  dot: musicOn },
+    { id: "history", label: "History", glyph: <HistoryGlyph /> },
+  ];
+  return (
+    <div style={{
+      display: "flex", gap: 4,
+      background: COLORS.card, border: `1px solid ${COLORS.border}`,
+      borderRadius: 14, padding: 5,
+    }}>
+      {tabs.map(t => {
+        const on = active === t.id;
+        return (
+          <button key={t.id} onClick={() => onChange(t.id)} title={t.label} style={{
+            flex: 1, position: "relative",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+            padding: "8px 2px", borderRadius: 10, border: "none", cursor: "pointer",
+            background: on ? COLORS.blue : "transparent",
+            color: on ? "#fff" : COLORS.textSec,
+            fontFamily: "inherit", fontWeight: 700, fontSize: 11,
+            transition: "background 0.15s, color 0.15s",
+          }}>
+            {t.glyph}
+            <span>{t.label}</span>
+            {t.badge > 0 && (
+              <span style={{
+                position: "absolute", top: 3, right: "50%", marginRight: -22,
+                background: COLORS.red, color: "#fff",
+                fontSize: 9, fontWeight: 800, minWidth: 15, height: 15,
+                borderRadius: 8, padding: "0 3px",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: `2px solid ${on ? COLORS.blue : COLORS.card}`,
+              }}>{t.badge}</span>
+            )}
+            {t.dot && !t.badge && (
+              <span style={{
+                position: "absolute", top: 5, right: "50%", marginRight: -20,
+                width: 8, height: 8, borderRadius: "50%", background: COLORS.green,
+                border: `2px solid ${on ? COLORS.blue : COLORS.card}`,
+              }} />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -506,6 +564,22 @@ function HistoryGlyph() {
     </svg>
   );
 }
+function SessionGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function BackGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M10 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 12h13a5 5 0 015 5v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────
 // Website Blocker
@@ -536,29 +610,48 @@ function WebsiteBlockerPanel({ onClose }) {
 
   return (
     <Card>
-      <PanelHeader title="Website Blocker" onClose={onClose} />
+      <PanelHeader title="Website Blocker" />
       <div style={{ color: COLORS.textSec, fontSize: 12, marginBottom: 12, lineHeight: 1.5 }}>
-        Add distraction sites you want to stay away from while focusing.
+        Type a site you want to avoid, then press <strong style={{ color: COLORS.text }}>Add</strong>.
       </div>
 
       <form onSubmit={handleAdd} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-        <input
-          type="text"
-          placeholder="e.g. instagram.com"
-          value={input}
-          onChange={e => { setInput(e.target.value); setError(""); }}
-          style={{
-            flex: 1, background: COLORS.bg,
-            border: `1px solid ${error ? COLORS.red : COLORS.border}`,
-            borderRadius: 8, padding: "8px 10px",
-            color: COLORS.text, fontFamily: "inherit", fontSize: 13,
-          }}
-        />
+        <div style={{
+          flex: 1, display: "flex", alignItems: "center", gap: 4,
+          background: COLORS.bg,
+          border: `1px solid ${error ? COLORS.red : COLORS.border}`,
+          borderRadius: 8, padding: "0 6px 0 10px",
+        }}>
+          <input
+            type="text"
+            placeholder="e.g. instagram.com"
+            value={input}
+            onChange={e => { setInput(e.target.value); setError(""); }}
+            style={{
+              flex: 1, minWidth: 0, background: "transparent", border: "none",
+              padding: "8px 0", outline: "none",
+              color: COLORS.text, fontFamily: "inherit", fontSize: 13,
+            }}
+          />
+          {input && (
+            <button
+              type="button"
+              onClick={() => { setInput(""); setError(""); }}
+              title="Clear"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                background: "transparent", border: `1px solid ${COLORS.border}`,
+                color: COLORS.textSec, cursor: "pointer",
+              }}
+            ><BackGlyph /></button>
+          )}
+        </div>
         <button type="submit" style={{
           background: COLORS.blue, color: "#fff", border: "none",
           borderRadius: 8, padding: "8px 14px",
           fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer",
-        }}>Add</button>
+        }}>＋ Add</button>
       </form>
       {error && <div style={{ color: COLORS.red, fontSize: 11, marginBottom: 8 }}>{error}</div>}
 
@@ -861,7 +954,7 @@ function HistoryPanel({ onClose }) {
               <div style={{
                 color: COLORS.text, fontSize: 12, fontWeight: 600,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>{h.label} · {Math.round(h.durationSecs / 60)}m</div>
+              }}>{cleanLabel(h)} · {Math.round(h.durationSecs / 60)}m</div>
               <div style={{ color: COLORS.textMuted, fontSize: 10 }}>
                 {h.status === "completed" ? "Completed" : "Started"} · {formatRelative(h.completedAt)}
               </div>
@@ -902,17 +995,28 @@ function Stat({ label, value, color }) {
 // Default right-column cards (kept from prior version)
 // ─────────────────────────────────────────────────────────────
 
-function SessionLog({ sessions }) {
+function SessionLog({ sessions, history = [] }) {
+  const today = new Date().toISOString().slice(0, 10);
+  // actual completed sessions today, newest first (history is already newest-first)
+  const todays = history.filter(
+    h => h.status === "completed" && h.completedAt.slice(0, 10) === today
+  );
+
   return (
     <Card>
       <div style={{ color: COLORS.text, fontWeight: 700, marginBottom: 12 }}>Today's Sessions</div>
-      {sessions === 0
-        ? <div style={{ color: COLORS.textMuted, fontSize: 12 }}>No sessions yet. Start your first one!</div>
-        : [...Array(Math.min(sessions, 6))].map((_, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green }} />
-            <span style={{ color: COLORS.textSec, fontSize: 12 }}>Session {i + 1} · 25m</span>
-            <span style={{ color: COLORS.green, fontSize: 10, marginLeft: "auto" }}>✓</span>
+      {todays.length === 0
+        ? <div style={{ color: COLORS.textMuted, fontSize: 12 }}>
+            {sessions > 0 ? "Session history cleared." : "No sessions yet. Start your first one!"}
+          </div>
+        : todays.slice(0, 6).map((h, i) => (
+          <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green, flexShrink: 0 }} />
+            <span style={{
+              color: COLORS.textSec, fontSize: 12,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{cleanLabel(h)} · {Math.round(h.durationSecs / 60)}m</span>
+            <span style={{ color: COLORS.green, fontSize: 10, marginLeft: "auto", flexShrink: 0 }}>✓</span>
           </div>
         ))}
     </Card>
